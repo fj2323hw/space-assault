@@ -53,9 +53,15 @@ class RemotePlayer {
 
     // Revival indicator (0–1, shown as arc when being revived)
     this.revivalProgress = 0;
+    this.hasReceivedState = false;
   }
 
   updateState(data) {
+    if (!this.hasReceivedState && data.x != null && data.y != null) {
+      this.displayX = data.x;
+      this.displayY = data.y;
+      this.hasReceivedState = true;
+    }
     this.x              = data.x            ?? this.x;
     this.y              = data.y            ?? this.y;
     this.angle          = data.angle        ?? this.angle;
@@ -68,6 +74,7 @@ class RemotePlayer {
   }
 
   draw(ctx) {
+    if (!this.hasReceivedState) return;
     // Smooth interpolation toward received position
     this.displayX += (this.x - this.displayX) * 0.35;
     this.displayY += (this.y - this.displayY) * 0.35;
@@ -482,6 +489,7 @@ class MultiplayerManager {
       const peerId = `sa-room-${passcode}-${suffix}`;
       await this._initPeer(peerId);
       this.hostPeerId = this.peer.id;
+      this.lobbyPlayers[0].peerId = this.peer.id;
 
       // Register in Firestore
       if (window.firestoreDb) {
@@ -620,7 +628,9 @@ class MultiplayerManager {
           break;
         }
         {
-          const colorIdx = this.lobbyPlayers.length;
+          const usedColors = new Set(this.lobbyPlayers.map(p => p.colorIndex));
+          let colorIdx = 0;
+          while (usedColors.has(colorIdx)) colorIdx++;
           this.connections[fromPeerId] = conn;
           this.remotePlayers[fromPeerId] = new RemotePlayer(fromPeerId, data.name, colorIdx);
           this.lobbyPlayers.push({ peerId: fromPeerId, name: data.name, colorIndex: colorIdx });
@@ -682,7 +692,7 @@ class MultiplayerManager {
         this.gameMode    = data.gameMode;
         this.lobbyPlayers = data.players;
         data.players.forEach(p => {
-          if (p.peerId && p.peerId !== this.peer?.id) {
+          if (p.peerId && p.peerId !== this.peer?.id && !this.remotePlayers[p.peerId]) {
             this.remotePlayers[p.peerId] = new RemotePlayer(p.peerId, p.name, p.colorIndex);
           }
         });
@@ -693,7 +703,13 @@ class MultiplayerManager {
       // ── PLAYER_STATE ──
       case MP_MSG.PLAYER_STATE: {
         const pid = data.peerId || fromPeerId;
-        if (this.remotePlayers[pid]) {
+        if (pid && pid !== this.peer?.id) {
+          if (!this.remotePlayers[pid]) {
+            const lp = this.lobbyPlayers.find(p => p.peerId === pid);
+            const name = lp ? lp.name : (data.name || 'Player');
+            const colorIdx = lp ? lp.colorIndex : 0;
+            this.remotePlayers[pid] = new RemotePlayer(pid, name, colorIdx);
+          }
           this.remotePlayers[pid].updateState(data);
         }
         if (this.isHost) {
@@ -1015,6 +1031,7 @@ class MultiplayerManager {
     if (!this.active || typeof player === 'undefined') return;
     const msg = {
       type:             MP_MSG.PLAYER_STATE,
+      peerId:           this.peer?.id || (this.isHost ? '__host__' : null),
       x:                player.x,
       y:                player.y,
       angle:            player.angle,
