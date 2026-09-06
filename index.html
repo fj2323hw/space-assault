@@ -1,0 +1,2038 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>2D Action Prototype</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+      touch-action: none;
+    }
+
+    body {
+      background-color: #0d1117;
+      color: #c9d1d9;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      height: 100dvh;
+      width: 100vw;
+    }
+
+    #gameContainer {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, #161b22 0%, #090d13 100%);
+      cursor: crosshair;
+    }
+
+    /* Top Stats Bar (HP/MP Gauges & Score) */
+    .top-stats-bar {
+      position: absolute;
+      top: 14px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 0 20px;
+      pointer-events: none;
+      z-index: 20;
+    }
+
+    .bars-container {
+      background: rgba(22, 27, 34, 0.88);
+      border: 1px solid rgba(48, 54, 61, 0.8);
+      padding: 8px 14px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar-label {
+      font-size: 11px;
+      font-weight: 800;
+      width: 22px;
+      letter-spacing: 0.5px;
+    }
+
+    .hp-text {
+      color: #3fb950;
+      text-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
+    }
+
+    .mp-text {
+      color: #58a6ff;
+      text-shadow: 0 0 8px rgba(88, 166, 255, 0.6);
+    }
+
+    .bar-track {
+      position: relative;
+      width: 140px;
+      height: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 100%;
+      transition: width 0.15s ease-out, background 0.2s;
+    }
+
+    .hp-fill {
+      background: linear-gradient(90deg, #2ea043, #3fb950);
+      box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
+    }
+
+    .hp-fill.danger {
+      background: linear-gradient(90deg, #cf222e, #f85149);
+      box-shadow: 0 0 8px rgba(248, 81, 73, 0.8);
+    }
+
+    .mp-fill {
+      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      box-shadow: 0 0 8px rgba(88, 166, 255, 0.6);
+    }
+
+    .bar-val {
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b949e;
+      width: 54px;
+      text-align: right;
+      font-family: monospace;
+    }
+
+    .score-container {
+      background: rgba(22, 27, 34, 0.85);
+      border: 1px solid rgba(48, 54, 61, 0.8);
+      padding: 8px 18px;
+      border-radius: 20px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      font-size: 14px;
+      font-weight: 700;
+      color: #e6edf3;
+      letter-spacing: 1px;
+    }
+
+    .score-val {
+      color: #58a6ff;
+      font-size: 18px;
+      font-family: monospace;
+    }
+
+    /* UI Overlay Guide */
+    .ui-overlay {
+      position: absolute;
+      top: 70px;
+      left: 20px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .card {
+      background: rgba(22, 27, 34, 0.85);
+      border: 1px solid rgba(48, 54, 61, 0.8);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border-radius: 12px;
+      padding: 10px 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      max-width: 280px;
+    }
+
+    .title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #58a6ff;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .key-guide {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #8b949e;
+    }
+
+    .key {
+      display: inline-block;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-family: monospace;
+      font-weight: 600;
+      color: #f0f6fc;
+      margin: 0 1px;
+    }
+
+    /* Damage Flash Overlay */
+    #damageFlash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(255, 0, 0, 0.35);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.1s ease-out;
+      z-index: 25;
+    }
+
+    .wp-text {
+      color: #eab308;
+      text-shadow: 0 0 8px rgba(234, 179, 8, 0.6);
+    }
+
+    .wp-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: #facc15;
+      font-family: monospace;
+      letter-spacing: 0.5px;
+    }
+
+    /* PC Bottom HUD (2x2 Grid) */
+    .skill-hud {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      z-index: 10;
+      transition: opacity 0.3s;
+    }
+
+    .skill-slots-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 68px);
+      grid-template-rows: repeat(2, 68px);
+      gap: 10px 14px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .skill-slot {
+      position: relative;
+      width: 68px;
+      height: 68px;
+      background: rgba(13, 17, 23, 0.92);
+      border: 2px solid #58a6ff;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px rgba(88, 166, 255, 0.35);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s, transform 0.1s;
+    }
+
+    .skill-slot.summon-slot {
+      border-color: #a855f7;
+      box-shadow: 0 0 18px rgba(168, 85, 247, 0.35);
+    }
+
+    .skill-slot.bomb-slot {
+      border-color: #10b981;
+      box-shadow: 0 0 18px rgba(16, 185, 129, 0.35);
+    }
+
+    .skill-slot.ready-pulse {
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    .skill-slot.bomb-slot.ready-pulse {
+      animation: guardPulse 1.5s infinite alternate;
+    }
+
+    .skill-slot.summon-slot.ready-pulse {
+      animation: summonPulse 1.5s infinite alternate;
+    }
+
+    .skill-slot.bomb-slot.guard-active {
+      border-color: #34d399 !important;
+      box-shadow: 0 0 30px rgba(52, 211, 153, 0.9), inset 0 0 15px rgba(52, 211, 153, 0.5) !important;
+      transform: scale(1.08);
+    }
+
+    /* Ultimate Mode Styles */
+    .ult-btn {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+      border: 1.5px solid #475569;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      cursor: pointer;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .ult-btn.ready {
+      border-color: #f59e0b;
+      color: #fef08a;
+      background: linear-gradient(135deg, rgba(180, 83, 9, 0.4), rgba(245, 158, 11, 0.25));
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.45);
+      animation: ultBtnReady 1.2s infinite alternate;
+    }
+
+    .ult-btn.active {
+      border-color: #ef4444 !important;
+      color: #ffffff !important;
+      background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+      box-shadow: 0 0 25px rgba(239, 68, 68, 0.9), inset 0 0 10px rgba(254, 202, 202, 0.5) !important;
+      transform: scale(1.06);
+      animation: ultBtnActive 0.8s infinite alternate !important;
+    }
+
+    @keyframes ultBtnReady {
+      0% { box-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
+      100% { box-shadow: 0 0 22px rgba(245, 158, 11, 0.8); }
+    }
+
+    @keyframes ultBtnActive {
+      0% { box-shadow: 0 0 18px rgba(239, 68, 68, 0.7); }
+      100% { box-shadow: 0 0 35px rgba(239, 68, 68, 1), inset 0 0 15px rgba(254, 226, 226, 0.8); }
+    }
+
+    /* When Ultimate Mode is ON: Disabled Slots turn Gray */
+    .ult-disabled-slot {
+      filter: grayscale(100%) brightness(55%) !important;
+      opacity: 0.28 !important;
+      border-color: #334155 !important;
+      box-shadow: none !important;
+      animation: none !important;
+      pointer-events: none !important;
+    }
+
+    /* Enhanced Dash Aura during Ultimate Mode */
+    .ult-dash-aura {
+      border-color: #f59e0b !important;
+      box-shadow: 0 0 30px rgba(245, 158, 11, 0.95), 0 0 50px rgba(239, 68, 68, 0.8), inset 0 0 18px rgba(254, 240, 138, 0.8) !important;
+      animation: ultDashPulse 0.5s infinite alternate !important;
+      transform: scale(1.12) !important;
+      background: radial-gradient(circle at center, #7f1d1d, #450a0a) !important;
+    }
+
+    @keyframes ultDashPulse {
+      0% {
+        box-shadow: 0 0 20px rgba(245, 158, 11, 0.8), 0 0 35px rgba(239, 68, 68, 0.6), inset 0 0 10px rgba(254, 240, 138, 0.6);
+        transform: scale(1.08);
+      }
+      100% {
+        box-shadow: 0 0 40px rgba(245, 158, 11, 1), 0 0 65px rgba(239, 68, 68, 0.95), inset 0 0 25px rgba(254, 240, 138, 0.95);
+        transform: scale(1.15);
+      }
+    }
+
+    /* Ultimate Flash Screen Effect */
+    #ultScreenFlash {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      opacity: 0;
+      z-index: 22;
+      transition: opacity 0.15s ease-out;
+      background: radial-gradient(circle at center, rgba(239, 68, 68, 0.25) 0%, rgba(0, 0, 0, 0.5) 100%);
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 10px rgba(88, 166, 255, 0.3); }
+      100% { box-shadow: 0 0 22px rgba(88, 166, 255, 0.7); }
+    }
+
+    @keyframes guardPulse {
+      0% { box-shadow: 0 0 10px rgba(16, 185, 129, 0.3); }
+      100% { box-shadow: 0 0 22px rgba(16, 185, 129, 0.75); }
+    }
+
+    @keyframes summonPulse {
+      0% { box-shadow: 0 0 10px rgba(168, 85, 247, 0.35); }
+      100% { box-shadow: 0 0 24px rgba(168, 85, 247, 0.8); }
+    }
+
+    .skill-slot.on-cooldown {
+      border-color: #30363d !important;
+      box-shadow: none !important;
+      animation: none !important;
+    }
+
+    .skill-icon {
+      font-size: 22px;
+      z-index: 2;
+    }
+
+    .skill-key-badge {
+      font-size: 8px;
+      font-weight: 700;
+      color: #8b949e;
+      margin-top: 1px;
+      letter-spacing: 0.5px;
+      z-index: 2;
+    }
+
+    .cooldown-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 1;
+      transition: height 0.05s linear;
+    }
+
+    .cooldown-text {
+      position: absolute;
+      font-size: 14px;
+      font-weight: bold;
+      color: #ffffff;
+      z-index: 3;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      display: none;
+    }
+
+    .skill-cost-tag {
+      font-size: 8.5px;
+      font-weight: 800;
+      color: #58a6ff;
+      background: rgba(13, 17, 23, 0.85);
+      border: 1px solid rgba(88, 166, 255, 0.4);
+      border-radius: 4px;
+      padding: 1px 4px;
+      margin-top: 1px;
+      z-index: 2;
+      white-space: nowrap;
+    }
+
+    .skill-cost-tag.gold {
+      color: #fef08a;
+      border-color: rgba(245, 158, 11, 0.5);
+    }
+
+    .skill-label {
+      font-size: 10.5px;
+      color: #8b949e;
+      font-weight: 600;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    }
+
+    /* Virtual Joystick for Touch */
+    .joystick-container {
+      position: absolute;
+      bottom: 40px;
+      left: 40px;
+      width: 130px;
+      height: 130px;
+      pointer-events: auto;
+      z-index: 15;
+      touch-action: none;
+    }
+
+    .joystick-base {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: rgba(30, 41, 59, 0.45);
+      border: 2px solid rgba(88, 166, 255, 0.4);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.4);
+    }
+
+    .joystick-stick {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 30% 30%, #58a6ff, #1f6feb);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 10px rgba(88, 166, 255, 0.6);
+      pointer-events: none;
+      transition: transform 0.05s ease-out;
+    }
+
+    /* Mobile Touch Buttons Group (2x2 Grid) */
+    .touch-buttons-group {
+      position: absolute;
+      bottom: 24px;
+      right: 18px;
+      display: grid;
+      grid-template-columns: repeat(2, 64px);
+      grid-template-rows: repeat(2, 64px);
+      gap: 12px 14px;
+      align-items: center;
+      justify-content: center;
+      z-index: 15;
+      pointer-events: auto;
+    }
+
+    .touch-action-btn {
+      position: relative;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      touch-action: none;
+      overflow: hidden;
+      transition: transform 0.1s, border-color 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+
+    .touch-action-btn:active {
+      transform: scale(0.92);
+    }
+
+    .touch-action-btn.blink-btn {
+      background: radial-gradient(circle at 35% 35%, #238636, #196c2e);
+      border: 3px solid #3fb950;
+      box-shadow: 0 0 18px rgba(63, 185, 80, 0.4);
+    }
+
+    .touch-action-btn.homing-btn {
+      background: radial-gradient(circle at 35% 35%, #0284c7, #0369a1);
+      border: 3px solid #38bdf8;
+      box-shadow: 0 0 18px rgba(56, 189, 248, 0.45);
+    }
+
+    .touch-action-btn.bomb-btn {
+      background: radial-gradient(circle at 35% 35%, #059669, #065f46);
+      border: 3px solid #10b981;
+      box-shadow: 0 0 18px rgba(16, 185, 129, 0.45);
+    }
+
+    .touch-action-btn.summon-btn {
+      background: radial-gradient(circle at 35% 35%, #7e22ce, #581c87);
+      border: 3px solid #c084fc;
+      box-shadow: 0 0 18px rgba(192, 132, 252, 0.45);
+    }
+
+    .touch-action-btn.ult-mode-btn {
+      background: radial-gradient(circle at 35% 35%, #92400e, #451a03);
+      border: 3px solid #f59e0b;
+      box-shadow: 0 0 16px rgba(245, 158, 11, 0.4);
+    }
+
+    .touch-action-btn.ult-mode-btn.ready {
+      border-color: #facc15 !important;
+      box-shadow: 0 0 24px rgba(250, 204, 21, 0.8) !important;
+      animation: ultBtnReady 1.2s infinite alternate !important;
+    }
+
+    .touch-action-btn.ult-mode-btn.active {
+      background: radial-gradient(circle at 35% 35%, #ef4444, #991b1b) !important;
+      border-color: #f87171 !important;
+      box-shadow: 0 0 30px rgba(239, 68, 68, 0.95), inset 0 0 12px rgba(254, 202, 202, 0.7) !important;
+      transform: scale(1.08);
+      animation: ultBtnActive 0.8s infinite alternate !important;
+    }
+
+    .touch-action-btn.bomb-btn.guard-active {
+      background: radial-gradient(circle at 35% 35%, #10b981, #047857) !important;
+      border-color: #6ee7b7 !important;
+      box-shadow: 0 0 28px rgba(52, 211, 153, 0.9) !important;
+      transform: scale(1.08);
+    }
+
+    .touch-action-btn.on-cooldown {
+      background: #21262d !important;
+      border-color: #30363d !important;
+      box-shadow: none !important;
+    }
+
+    .touch-btn-icon {
+      font-size: 22px;
+      z-index: 2;
+    }
+
+    .touch-skill-cost {
+      font-size: 8px;
+      font-weight: 800;
+      color: #79c0ff;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(88, 166, 255, 0.4);
+      border-radius: 5px;
+      padding: 1px 4px;
+      margin-top: 1px;
+      z-index: 2;
+      white-space: nowrap;
+    }
+
+    .touch-skill-cost.gold {
+      color: #fef08a;
+      border-color: rgba(245, 158, 11, 0.5);
+    }
+
+    /* Out of MP / WP State */
+    .skill-slot.no-mp,
+    .skill-slot.no-cost,
+    .touch-action-btn.no-mp,
+    .touch-action-btn.no-cost {
+      opacity: 0.4;
+      filter: grayscale(80%);
+      border-color: #30363d !important;
+      box-shadow: none !important;
+      animation: none !important;
+    }
+
+    /* Game Over Modal */
+    #gameOverScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(13, 17, 23, 0.88);
+      backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .game-over-title {
+      font-size: 40px;
+      font-weight: 900;
+      color: #ff7b72;
+      text-shadow: 0 0 20px rgba(255, 123, 114, 0.5);
+      margin-bottom: 12px;
+      letter-spacing: 2px;
+    }
+
+    .final-score {
+      font-size: 20px;
+      color: #c9d1d9;
+      margin-bottom: 24px;
+    }
+
+    .final-score-val {
+      color: #58a6ff;
+      font-size: 26px;
+      font-weight: bold;
+      font-family: monospace;
+    }
+
+    .restart-btn {
+      background: linear-gradient(135deg, #1f6feb, #238636);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      border-radius: 28px;
+      padding: 14px 36px;
+      box-shadow: 0 0 20px rgba(88, 166, 255, 0.4);
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+
+    .restart-btn:active {
+      transform: scale(0.95);
+    }
+
+    .game-over-buttons {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .home-btn {
+      background: rgba(33, 38, 45, 0.9);
+      color: #c9d1d9;
+      font-size: 16px;
+      font-weight: 700;
+      border: 1px solid #30363d;
+      border-radius: 28px;
+      padding: 14px 28px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .home-btn:hover {
+      background: rgba(48, 54, 61, 0.9);
+      color: #ffffff;
+      border-color: #58a6ff;
+    }
+
+    .home-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Start Screen Modal */
+    #startScreen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at center, rgba(22, 27, 34, 0.94) 0%, rgba(9, 13, 19, 0.98) 100%);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 60;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .start-title {
+      font-size: 44px;
+      font-weight: 900;
+      letter-spacing: 3px;
+      background: linear-gradient(135deg, #58a6ff, #38bdf8, #7ee787);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+      text-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+    }
+
+    .start-subtitle {
+      font-size: 15px;
+      color: #8b949e;
+      margin-bottom: 24px;
+      letter-spacing: 1px;
+    }
+
+    /* Menu Steps Container */
+    .menu-step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 440px;
+      animation: fadeInStep 0.25s ease-out;
+    }
+
+    @keyframes fadeInStep {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .menu-step-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #8b949e;
+      letter-spacing: 1.5px;
+      margin-bottom: 16px;
+      text-transform: uppercase;
+    }
+
+    .menu-btn-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 100%;
+      margin-bottom: 16px;
+    }
+
+    .menu-btn {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 16px 24px;
+      border-radius: 14px;
+      border: 1px solid rgba(88, 166, 255, 0.4);
+      background: linear-gradient(135deg, rgba(31, 111, 235, 0.2), rgba(56, 189, 248, 0.1));
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+    }
+
+    .menu-btn.primary {
+      background: linear-gradient(135deg, #1f6feb, #238636);
+      border: none;
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    }
+
+    .menu-btn:not(.locked):hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 22px rgba(56, 189, 248, 0.6);
+      border-color: #58a6ff;
+    }
+
+    .menu-btn:not(.locked):active {
+      transform: translateY(0) scale(0.98);
+    }
+
+    /* Locked state */
+    .menu-btn.locked {
+      opacity: 0.48;
+      cursor: not-allowed;
+      border-color: #30363d;
+      background: rgba(22, 27, 34, 0.6);
+      color: #8b949e;
+      box-shadow: none;
+    }
+
+    .lock-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: rgba(248, 81, 73, 0.2);
+      border: 1px solid rgba(248, 81, 73, 0.4);
+      color: #ff7b72;
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+
+    .menu-back-link {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 6px 12px;
+      margin-top: 4px;
+      transition: color 0.15s;
+      text-decoration: underline;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .menu-back-link:hover {
+      color: #c9d1d9;
+    }
+
+    .start-card {
+      background: rgba(13, 17, 23, 0.75);
+      border: 1px solid rgba(48, 54, 61, 0.9);
+      border-radius: 16px;
+      padding: 16px 22px;
+      max-width: 420px;
+      width: 100%;
+      margin-bottom: 24px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+      text-align: left;
+    }
+
+    .start-card-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #58a6ff;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .start-guide-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      color: #c9d1d9;
+    }
+
+    .start-guide-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px dashed rgba(48, 54, 61, 0.5);
+      padding-bottom: 6px;
+    }
+
+    .start-guide-item:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .start-tip {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background: rgba(56, 189, 248, 0.1);
+      border-left: 3px solid #38bdf8;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #79c0ff;
+      line-height: 1.5;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #1f6feb, #238636);
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 800;
+      border: none;
+      border-radius: 30px;
+      padding: 16px 48px;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.5);
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.15s, box-shadow 0.2s;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .start-btn:hover {
+      box-shadow: 0 0 35px rgba(56, 189, 248, 0.8);
+      transform: scale(1.03);
+    }
+
+    .start-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Small Screen / Mobile Layout */
+    @media (max-width: 768px) {
+      .skill-hud {
+        display: none;
+      }
+      .ui-overlay {
+        top: 64px;
+        left: 12px;
+      }
+      .card {
+        padding: 6px 10px;
+        font-size: 11px;
+      }
+      .top-stats-bar {
+        padding: 0 14px;
+      }
+      .joystick-container {
+        bottom: 25px;
+        left: 20px;
+      }
+      .touch-skill-btn {
+        bottom: 25px;
+        right: 20px;
+        width: 74px;
+        height: 74px;
+      }
+    }
+
+    /* Boss HUD */
+    .boss-hud {
+      position: absolute;
+      top: 72px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      background: rgba(22, 27, 34, 0.92);
+      border: 1px solid rgba(248, 81, 73, 0.7);
+      box-shadow: 0 0 20px rgba(248, 81, 73, 0.4), 0 4px 16px rgba(0,0,0,0.5);
+      border-radius: 14px;
+      padding: 8px 18px;
+      z-index: 25;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+      min-width: 240px;
+    }
+
+    .boss-hud-header {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 1px;
+    }
+
+    .boss-hud-name {
+      color: #ff7b72;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      text-shadow: 0 0 8px rgba(248, 81, 73, 0.6);
+    }
+
+    .boss-hud-val {
+      color: #f0f6fc;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    .boss-bar-track {
+      width: 100%;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      position: relative;
+    }
+
+    .boss-bar-fill {
+      height: 100%;
+      width: 100%;
+      background: linear-gradient(90deg, #da3633, #f85149, #ff7b72);
+      box-shadow: 0 0 12px rgba(248, 81, 73, 0.8);
+      transition: width 0.15s ease-out;
+    }
+
+    /* Warning 3-second Intro Overlay */
+    #bossWarningOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 45;
+      pointer-events: none;
+      background: radial-gradient(circle, rgba(218, 54, 51, 0.28) 0%, rgba(13, 17, 23, 0.6) 80%);
+    }
+
+    .warning-stripes {
+      width: 100%;
+      padding: 10px 0;
+      background: repeating-linear-gradient(
+        -45deg,
+        #f85149,
+        #f85149 20px,
+        #161b22 20px,
+        #161b22 40px
+      );
+      opacity: 0.85;
+      box-shadow: 0 0 20px rgba(248, 81, 73, 0.7);
+    }
+
+    .warning-content {
+      margin: 28px 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .warning-title {
+      font-size: 50px;
+      font-weight: 900;
+      letter-spacing: 6px;
+      color: #ff7b72;
+      text-shadow: 0 0 30px rgba(248, 81, 73, 0.9), 0 0 60px rgba(248, 81, 73, 0.6);
+      animation: warningPulse 0.5s infinite alternate;
+    }
+
+    @keyframes warningPulse {
+      from { transform: scale(1); opacity: 0.9; }
+      to { transform: scale(1.06); opacity: 1; }
+    }
+
+    .warning-subtitle {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 3px;
+      color: #f0f6fc;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 6px 18px;
+      border-radius: 20px;
+      border: 1px solid rgba(248, 81, 73, 0.5);
+    }
+
+    .warning-timer {
+      font-size: 32px;
+      font-weight: 900;
+      color: #ffd33d;
+      font-family: monospace;
+      text-shadow: 0 0 16px rgba(255, 211, 61, 0.8);
+    }
+
+    /* Boss Selection Row with +/- buttons */
+    .boss-select-container {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    .boss-select-container .menu-btn {
+      flex: 1;
+      background: linear-gradient(135deg, rgba(218, 54, 51, 0.25), rgba(248, 81, 73, 0.15));
+      border: 1px solid rgba(248, 81, 73, 0.5);
+    }
+
+    .boss-select-container .menu-btn:hover {
+      border-color: #ff7b72;
+      box-shadow: 0 4px 18px rgba(248, 81, 73, 0.4);
+    }
+
+    /* Boss Level Select Step Modal */
+    .boss-config-card {
+      background: rgba(22, 27, 34, 0.9);
+      border: 1px solid rgba(248, 81, 73, 0.5);
+      box-shadow: 0 0 20px rgba(248, 81, 73, 0.25);
+      border-radius: 18px;
+      padding: 24px;
+      width: 100%;
+      max-width: 380px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .boss-config-title {
+      font-size: 20px;
+      font-weight: 900;
+      color: #ff7b72;
+      letter-spacing: 1.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .boss-config-desc {
+      font-size: 13px;
+      color: #8b949e;
+      line-height: 1.5;
+    }
+
+    .level-control-group {
+      display: flex;
+      align-items: center;
+      background: rgba(13, 17, 23, 0.95);
+      border: 1px solid rgba(88, 166, 255, 0.4);
+      border-radius: 16px;
+      padding: 8px 14px;
+      gap: 12px;
+    }
+
+    .lvl-badge {
+      font-size: 16px;
+      font-weight: 800;
+      color: #ffd33d;
+      padding: 0 8px;
+      min-width: 70px;
+      text-align: center;
+      letter-spacing: 1px;
+    }
+
+    .lvl-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(88, 166, 255, 0.4);
+      background: rgba(33, 38, 45, 0.9);
+      color: #f0f6fc;
+      font-size: 20px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.15s ease;
+    }
+
+    .lvl-btn:hover {
+      background: rgba(56, 139, 253, 0.3);
+      border-color: #58a6ff;
+      transform: scale(1.08);
+    }
+
+    .lvl-btn:active {
+      transform: scale(0.92);
+    }
+
+    .boss-start-btn {
+      background: linear-gradient(135deg, #da3633, #f85149);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      border: none;
+      border-radius: 28px;
+      padding: 14px 40px;
+      box-shadow: 0 0 20px rgba(248, 81, 73, 0.5);
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.15s, box-shadow 0.2s;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .boss-start-btn:hover {
+      box-shadow: 0 0 30px rgba(248, 81, 73, 0.8);
+      transform: scale(1.03);
+    }
+
+    .boss-start-btn:active {
+      transform: scale(0.96);
+    }
+
+    /* Toast Notification for Level Warning / Messages */
+    #toastNotice {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(22, 27, 34, 0.96);
+      border: 1px solid #f85149;
+      color: #ff7b72;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 15px rgba(248, 81, 73, 0.4);
+      padding: 10px 22px;
+      border-radius: 24px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+      z-index: 100;
+      white-space: nowrap;
+    }
+
+    #toastNotice.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Custom Modals (Leaderboard & Record Register) */
+    .custom-modal {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 19, 0.88);
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 80;
+      padding: 16px;
+      animation: fadeInModal 0.2s ease-out;
+    }
+
+    @keyframes fadeInModal {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-card {
+      background: #161b22;
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      border-radius: 20px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 24px rgba(56, 189, 248, 0.2);
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      background: rgba(13, 17, 23, 0.7);
+      border-bottom: 1px solid rgba(48, 54, 61, 0.8);
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      background: linear-gradient(135deg, #ffd33d, #58a6ff);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: #8b949e;
+      font-size: 20px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+
+    .modal-close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #f0f6fc;
+    }
+
+    /* Device Selector Tabs (PC / Mobile) */
+    .lb-device-tabs {
+      display: flex;
+      background: rgba(13, 17, 23, 0.95);
+      padding: 6px 14px 0 14px;
+      gap: 6px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.6);
+    }
+
+    .lb-device-tab {
+      flex: 1;
+      padding: 8px 12px;
+      border-radius: 8px 8px 0 0;
+      border: 1px solid transparent;
+      border-bottom: none;
+      background: transparent;
+      color: #8b949e;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      touch-action: manipulation;
+    }
+
+    .lb-device-tab.active {
+      background: rgba(33, 38, 45, 0.9);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: #79c0ff;
+    }
+
+    .lb-device-tab:not(.active):hover {
+      color: #e6edf3;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    /* Leaderboard Tabs */
+    .lb-tabs {
+      display: flex;
+      background: rgba(13, 17, 23, 0.9);
+      padding: 8px 14px;
+      gap: 8px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.7);
+    }
+
+    .lb-tab {
+      flex: 1;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: #8b949e;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .lb-tab.active {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: rgba(56, 189, 248, 0.5);
+      color: #58a6ff;
+      box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+    }
+
+    .lb-tab:not(.active):hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: #c9d1d9;
+    }
+
+    /* Boss Level Bar in Leaderboard */
+    .lb-boss-level-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: rgba(22, 27, 34, 0.9);
+      border-bottom: 1px solid rgba(48, 54, 61, 0.6);
+    }
+
+    .lb-filter-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #8b949e;
+    }
+
+    .lb-level-controls {
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    .lb-level-controls .lvl-btn {
+      width: 30px;
+      height: 30px;
+      font-size: 16px;
+    }
+
+    .lb-level-controls .lvl-badge {
+      font-size: 14px;
+      min-width: 60px;
+    }
+
+    /* Table */
+    .lb-table-container {
+      padding: 12px 16px;
+      max-height: 320px;
+      overflow-y: auto;
+      min-height: 200px;
+      position: relative;
+    }
+
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      text-align: left;
+    }
+
+    .lb-table th {
+      color: #8b949e;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .lb-table td {
+      padding: 10px 10px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.35);
+      color: #e6edf3;
+      font-weight: 500;
+    }
+
+    .lb-table tr:hover td {
+      background: rgba(56, 189, 248, 0.06);
+    }
+
+    .lb-rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .rank-1 {
+      background: linear-gradient(135deg, #ffd700, #ffae00);
+      color: #000;
+      box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+    }
+
+    .rank-2 {
+      background: linear-gradient(135deg, #e0e0e0, #9e9e9e);
+      color: #000;
+      box-shadow: 0 0 8px rgba(224, 224, 224, 0.4);
+    }
+
+    .rank-3 {
+      background: linear-gradient(135deg, #cd7f32, #a0522d);
+      color: #fff;
+      box-shadow: 0 0 8px rgba(205, 127, 50, 0.4);
+    }
+
+    .rank-other {
+      background: rgba(48, 54, 61, 0.6);
+      color: #8b949e;
+    }
+
+    .lb-score-cell {
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 14px;
+      color: #38bdf8;
+      text-align: right;
+    }
+
+    .lb-time-cell {
+      font-family: monospace;
+      font-weight: 700;
+      font-size: 14px;
+      color: #ffd33d;
+      text-align: right;
+    }
+
+    .lb-date-cell {
+      color: #8b949e;
+      font-size: 11px;
+      text-align: right;
+    }
+
+    .lb-loading, .lb-empty {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: #8b949e;
+      font-size: 14px;
+      text-align: center;
+      width: 80%;
+    }
+
+    .modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(13, 17, 23, 0.8);
+      border-top: 1px solid rgba(48, 54, 61, 0.8);
+    }
+
+    .lb-footer-tip {
+      font-size: 12px;
+      color: #79c0ff;
+    }
+
+    .modal-btn {
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: all 0.15s;
+    }
+
+    .modal-btn.primary {
+      background: linear-gradient(135deg, #1f6feb, #238636);
+      color: #fff;
+      box-shadow: 0 0 14px rgba(56, 189, 248, 0.4);
+    }
+
+    .modal-btn.primary:hover {
+      box-shadow: 0 0 22px rgba(56, 189, 248, 0.7);
+      transform: scale(1.02);
+    }
+
+    .modal-btn.secondary {
+      background: rgba(48, 54, 61, 0.8);
+      color: #c9d1d9;
+      border: 1px solid rgba(240, 246, 252, 0.1);
+    }
+
+    .modal-btn.secondary:hover {
+      background: rgba(56, 63, 72, 1);
+      color: #fff;
+    }
+
+    /* Record Register Card */
+    .record-card {
+      padding: 24px;
+      max-width: 420px;
+      text-align: center;
+      gap: 16px;
+    }
+
+    .record-title {
+      font-size: 24px;
+      font-weight: 900;
+      background: linear-gradient(135deg, #ffd33d, #7ee787);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: 1px;
+    }
+
+    .record-subtitle {
+      font-size: 14px;
+      color: #8b949e;
+    }
+
+    .record-value-box {
+      background: rgba(13, 17, 23, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 14px;
+      padding: 12px;
+      margin: 4px 0;
+    }
+
+    .record-val-label {
+      font-size: 12px;
+      color: #8b949e;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+
+    .record-val-num {
+      font-size: 32px;
+      font-weight: 900;
+      font-family: monospace;
+      color: #38bdf8;
+    }
+
+    .record-input-group {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 6px;
+      text-align: left;
+      width: 100%;
+    }
+
+    .record-input-group label {
+      font-size: 12px;
+      color: #c9d1d9;
+      font-weight: 600;
+    }
+
+    .record-input-group input {
+      width: 100%;
+      padding: 12px 16px;
+      background: rgba(13, 17, 23, 0.95);
+      border: 1px solid rgba(88, 166, 255, 0.5);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .record-input-group input:focus {
+      border-color: #58a6ff;
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.4);
+    }
+
+    .record-btn-group {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .record-btn-group .modal-btn {
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <div id="gameContainer">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Damage Red Flash -->
+    <div id="damageFlash"></div>
+    <!-- Ultimate Mode Screen Flash -->
+    <div id="ultScreenFlash"></div>
+
+    <!-- Top Stats Bar (HP & MP Gauges + Score) -->
+    <div class="top-stats-bar">
+      <div class="bars-container">
+        <!-- HP Bar -->
+        <div class="bar-row">
+          <span class="bar-label hp-text">HP</span>
+          <div class="bar-track">
+            <div class="bar-fill hp-fill" id="hpFill"></div>
+          </div>
+          <span class="bar-val" id="hpVal">100/100</span>
+        </div>
+        <!-- MP Bar -->
+        <div class="bar-row">
+          <span class="bar-label mp-text">MP</span>
+          <div class="bar-track">
+            <div class="bar-fill mp-fill" id="mpFill"></div>
+          </div>
+          <span class="bar-val" id="mpVal">100/100</span>
+        </div>
+        <!-- WP Display -->
+        <div class="bar-row" style="margin-top: 1px;">
+          <span class="bar-label wp-text">WP</span>
+          <span class="wp-badge" id="wpVal">0</span>
+        </div>
+      </div>
+      <div class="score-container" id="statContainer">
+        <span id="statLabel">SCORE</span>: <span class="score-val" id="scoreVal">0</span>
+      </div>
+    </div>
+
+    <!-- Boss HP HUD (Active during Boss Battle) -->
+    <div class="boss-hud" id="bossHud">
+      <div class="boss-hud-header">
+        <span class="boss-hud-name">👹 ボス (LV. 1)</span>
+        <span class="boss-hud-val" id="bossHpVal">100/100</span>
+      </div>
+      <div class="boss-bar-track">
+        <div class="boss-bar-fill" id="bossHpFill"></div>
+      </div>
+    </div>
+
+    <!-- Boss Warning Intro Overlay (3 Seconds) -->
+    <div id="bossWarningOverlay">
+      <div class="warning-stripes"></div>
+      <div class="warning-content">
+        <div class="warning-title">⚠️ WARNING ⚠️</div>
+        <div class="warning-subtitle">👹 ボス戦 開始</div>
+        <div class="warning-timer" id="bossWarningTimer">3.0s</div>
+      </div>
+      <div class="warning-stripes"></div>
+    </div>
+
+    <!-- Toast Notice Popup -->
+    <div id="toastNotice"></div>
+
+    <!-- Guide Overlay -->
+    <div class="ui-overlay" id="guideOverlay">
+      <div class="card">
+        <div class="title">操作方法</div>
+        <div class="key-guide" id="guideText">
+          <div><span class="key">WASD</span>: 移動</div>
+          <div><span class="key">左クリック</span>: 弾を撃つ</div>
+          <div><span class="key">Q (長押し)</span>: 追尾弾 (MP 3)</div>
+          <div><span class="key">右クリック</span>: ブリンク (MP 10)</div>
+          <div><span class="key">SPACE (長押し)</span>: ガード (10 MP/s 無敵)</div>
+          <div><span class="key">E</span>: しょったー召喚 (WP 20 + MP 50)</div>
+          <div><span class="key">R</span>: 必殺モード (WP 100 + MP 100)</div>
+          <div style="margin-top: 3px; color: #f59e0b; font-size: 11px;">※必殺中ブリンクで「一刀両断(100dmg)」発動！</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PC Skill HUD (Center Bottom 2x2 Grid + Ultimate Button) -->
+    <div class="skill-hud">
+      <!-- Ultimate Toggle Button -->
+      <button class="ult-btn" id="ultBtn">
+        <span>🔥 必殺技 [R]</span>
+        <span style="font-size: 9px; opacity: 0.85;">(WP100/MP100)</span>
+      </button>
+
+      <div class="skill-slots-grid">
+        <!-- Slot 1 (Top-Left): Homing Missile -->
+        <div class="skill-slot ready-pulse" id="homingSlot" style="border-color: #38bdf8; box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);">
+          <div class="cooldown-overlay" id="homingCooldownOverlay"></div>
+          <div class="skill-icon">🎯</div>
+          <div class="skill-cost-tag" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.5);">MP 3</div>
+          <div class="skill-key-badge">Q (長押し)</div>
+          <div class="cooldown-text" id="homingCooldownText">0.3</div>
+        </div>
+
+        <!-- Slot 2 (Top-Right): Blink -->
+        <div class="skill-slot ready-pulse" id="skillSlot">
+          <div class="cooldown-overlay" id="cooldownOverlay"></div>
+          <div class="skill-icon">⚡</div>
+          <div class="skill-cost-tag">MP 10</div>
+          <div class="skill-key-badge">右クリック</div>
+          <div class="cooldown-text" id="cooldownText">1.5</div>
+        </div>
+
+        <!-- Slot 3 (Bottom-Left): Guard -->
+        <div class="skill-slot bomb-slot ready-pulse" id="bombSlot">
+          <div class="cooldown-overlay" id="bombCooldownOverlay"></div>
+          <div class="skill-icon">🛡️</div>
+          <div class="skill-cost-tag" style="color: #a7f3d0; border-color: rgba(16, 185, 129, 0.5);">10 MP/s</div>
+          <div class="skill-key-badge">SPACE (長押し)</div>
+          <div class="cooldown-text" id="bombCooldownText">0.0</div>
+        </div>
+
+        <!-- Slot 4 (Bottom-Right): Summon Minion -->
+        <div class="skill-slot summon-slot ready-pulse" id="summonSlot">
+          <div class="cooldown-overlay" id="summonCooldownOverlay"></div>
+          <div class="skill-icon">🤖</div>
+          <div class="skill-cost-tag" style="color: #c084fc; border-color: rgba(192, 132, 252, 0.5);">WP20 MP50</div>
+          <div class="skill-key-badge">E</div>
+          <div class="cooldown-text" id="summonCooldownText">1.0</div>
+        </div>
+      </div>
+      <div class="skill-label">🎯Q追尾 / ⚡右クリック移動 / 🛡️SPACEガード / 🤖E召喚 / 🔥R必殺モード</div>
+    </div>
+
+    <!-- Virtual Joystick for Mobile Touch -->
+    <div class="joystick-container" id="joystickContainer">
+      <div class="joystick-base" id="joystickBase">
+        <div class="joystick-stick" id="joystickStick"></div>
+      </div>
+    </div>
+
+    <!-- Mobile Touch Action Buttons (2x2 Grid + Ultimate Button on Top) -->
+    <div style="position: absolute; bottom: 22px; right: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 15; pointer-events: auto;">
+      <!-- Mobile Ultimate Button -->
+      <div class="touch-action-btn ult-mode-btn" id="touchUltBtn" style="width: 142px; height: 38px; border-radius: 19px; flex-direction: row; gap: 6px;">
+        <span style="font-size: 16px;">🔥</span>
+        <span style="font-size: 11px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px;">必殺技</span>
+        <span style="font-size: 8px; font-weight: 700; color: #fef08a;">100/100</span>
+      </div>
+
+      <div class="touch-buttons-group" style="position: static; bottom: auto; right: auto;">
+        <!-- Top-Left: Guard -->
+        <div class="touch-action-btn bomb-btn" id="touchBombBtn">
+          <div class="cooldown-overlay" id="touchBombCooldownOverlay"></div>
+          <div class="touch-btn-icon">🛡️</div>
+          <div class="touch-skill-cost" style="color: #a7f3d0; border-color: rgba(16, 185, 129, 0.6);">10 MP/s</div>
+          <div class="touch-skill-cooldown-text" id="touchBombCooldownText">0.0</div>
+        </div>
+
+        <!-- Top-Right: Summon -->
+        <div class="touch-action-btn summon-btn" id="touchSummonBtn">
+          <div class="cooldown-overlay" id="touchSummonCooldownOverlay"></div>
+          <div class="touch-btn-icon">🤖</div>
+          <div class="touch-skill-cost" style="color: #f0abfc; border-color: rgba(192, 132, 252, 0.6);">WP20 MP50</div>
+          <div class="touch-skill-cooldown-text" id="touchSummonCooldownText">1.0</div>
+        </div>
+
+        <!-- Bottom-Left: Homing -->
+        <div class="touch-action-btn homing-btn" id="touchHomingBtn">
+          <div class="cooldown-overlay" id="touchHomingCooldownOverlay"></div>
+          <div class="touch-btn-icon">🎯</div>
+          <div class="touch-skill-cost" style="color: #e0f2fe; border-color: rgba(56, 189, 248, 0.6);">MP 3</div>
+          <div class="touch-skill-cooldown-text" id="touchHomingCooldownText">0.3</div>
+        </div>
+
+        <!-- Bottom-Right: Blink -->
+        <div class="touch-action-btn blink-btn" id="touchSkillBtn">
+          <div class="cooldown-overlay" id="touchCooldownOverlay"></div>
+          <div class="touch-btn-icon">⚡</div>
+          <div class="touch-skill-cost">MP 10</div>
+          <div class="touch-skill-cooldown-text" id="touchCooldownText">1.5</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start Screen & Mode Select -->
+    <div id="startScreen">
+      <div class="start-title">SPACE ASSAULT</div>
+      <div class="start-subtitle">High-Speed 2D Action Shooter</div>
+
+      <!-- Step 1: Main Start Button -->
+      <div id="menuStepMain" class="menu-step">
+        <div class="start-card">
+          <div class="start-card-title">🎮 操 作 ガ イ ド</div>
+          <div class="start-guide-list" id="startGuideList">
+            <div class="start-guide-item"><span>移動</span><span class="key">WASD / 矢印キー</span></div>
+            <div class="start-guide-item"><span>ショット (射撃)</span><span class="key">マウス左クリック (長押し連射)</span></div>
+            <div class="start-guide-item"><span>追尾弾 (スキル)</span><span class="key">Qキー長押し (MP 3)</span></div>
+            <div class="start-guide-item"><span>高速ブリンク</span><span class="key">マウス右クリック (MP 10)</span></div>
+            <div class="start-guide-item"><span>無敵ガード</span><span class="key">SPACE / B長押し (10 MP/s)</span></div>
+            <div class="start-guide-item"><span>味方召喚</span><span class="key">Eキー (WP 20 + MP 50)</span></div>
+            <div class="start-guide-item"><span>必殺技モード</span><span class="key">Rキー (WP 100 + MP 100)</span></div>
+          </div>
+          <div class="start-tip">
+            💡 <strong>必殺モード:</strong> WP100とMP100で<strong>必殺技モード[R]</strong>に突入！ ブリンク発動で最高HPの敵の背後へワープして<strong>一刀両断(100ダメージ)</strong>！
+          </div>
+        </div>
+        <button class="start-btn" id="startBtn">▶ 始める</button>
+      </div>
+
+      <!-- Step 2: Solo / Multi Selection -->
+      <div id="menuStepMode" class="menu-step" style="display: none;">
+        <div class="menu-step-title">プレイモード選択</div>
+        <div class="menu-btn-group">
+          <button class="menu-btn primary" id="soloModeBtn">
+            <span>👤 ソロプレイ</span>
+          </button>
+          <button class="menu-btn locked" id="multiModeBtn" disabled>
+            <span>👥 マルチプレイ</span>
+            <span class="lock-badge">🔒 準備中</span>
+          </button>
+        </div>
+        <button class="menu-back-link" id="backToMainBtn">← タイトルへ戻る</button>
+      </div>
+
+      <!-- Step 3: Solo Submode Selection (Score Attack / Boss) -->
+      <div id="menuStepSoloSub" class="menu-step" style="display: none;">
+        <div class="menu-step-title">ソロモード選択</div>
+        <div class="menu-btn-group">
+          <button class="menu-btn primary" id="scoreAttackBtn">
+            <span>⚡ スコアアタック</span>
+          </button>
+          <button class="menu-btn" id="bossBattleBtn" style="background: linear-gradient(135deg, rgba(218, 54, 51, 0.28), rgba(248, 81, 73, 0.16)); border: 1px solid rgba(248, 81, 73, 0.5);">
+            <span>👹 ボス戦</span>
+          </button>
+          <button class="menu-btn leaderboard-trigger-btn" id="soloLeaderboardBtn" style="background: linear-gradient(135deg, rgba(234, 179, 8, 0.25), rgba(202, 138, 4, 0.15)); border: 1px solid rgba(250, 204, 21, 0.5); color: #fde047;">
+            <span>🏆 オンラインリーダーボード</span>
+          </button>
+        </div>
+        <button class="menu-back-link" id="backToModeBtn">← モード選択へ戻る</button>
+      </div>
+
+      <!-- Step 4: Boss Level Selection & Start -->
+      <div id="menuStepBossLevel" class="menu-step" style="display: none;">
+        <div class="menu-step-title">ボス戦設定</div>
+        <div class="boss-config-card">
+          <div class="boss-config-title">👹 BOSS BATTLE</div>
+          <div class="boss-config-desc">挑戦するボスの難易度レベルを選択してください</div>
+          <div class="level-control-group">
+            <button class="lvl-btn" id="bossLvlMinusBtn" title="レベルを下げる">-</button>
+            <span class="lvl-badge" id="bossLvlText">レベル1</span>
+            <button class="lvl-btn" id="bossLvlPlusBtn" title="レベルを上げる">+</button>
+          </div>
+        </div>
+        <button class="boss-start-btn" id="bossStartGameBtn">
+          <span>⚔️ 出撃 (START)</span>
+        </button>
+        <button class="menu-btn leaderboard-trigger-btn" id="bossStepLeaderboardBtn" style="margin-top: 10px; max-width: 280px; padding: 10px 18px; font-size: 15px; background: rgba(234, 179, 8, 0.18); border: 1px solid rgba(250, 204, 21, 0.4); color: #fde047;">
+          <span>🏆 ボス戦記録を見る</span>
+        </button>
+        <button class="menu-back-link" id="backToSoloSubBtn">← ソロモード選択へ戻る</button>
+      </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen">
+      <div class="game-over-title">GAME OVER</div>
+      <div class="final-score"><span id="finalStatLabel">SCORE</span>: <span class="final-score-val" id="finalScoreVal">0</span></div>
+      <div class="game-over-buttons">
+        <button class="restart-btn" id="restartBtn">🔄 RETRY (再挑戦)</button>
+        <button class="menu-btn" id="gameoverLeaderboardBtn" style="padding: 12px 24px; font-size: 15px; background: rgba(234, 179, 8, 0.22); border: 1px solid rgba(250, 204, 21, 0.5); color: #fde047;">🏆 リーダーボード</button>
+        <button class="home-btn" id="homeBtn">🏠 スタート画面へ戻る</button>
+      </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboardModal" class="custom-modal" style="display: none;">
+      <div class="modal-card leaderboard-card">
+        <div class="modal-header">
+          <div class="modal-title">🏆 オンライン リーダーボード TOP10</div>
+          <button class="modal-close-btn" id="closeLeaderboardBtn">✕</button>
+        </div>
+
+        <!-- Device Filter Tabs (PC / Mobile) -->
+        <div class="lb-device-tabs">
+          <button class="lb-device-tab active" id="lbDeviceTabPC">💻 PC版</button>
+          <button class="lb-device-tab" id="lbDeviceTabMobile">📱 スマホ版</button>
+        </div>
+
+        <!-- Mode Tabs -->
+        <div class="lb-tabs">
+          <button class="lb-tab active" id="lbTabScore">⚡ スコアアタック</button>
+          <button class="lb-tab" id="lbTabBoss">👹 ボス戦タイム</button>
+        </div>
+
+        <!-- Boss Level Filter (Shown only in Boss tab) -->
+        <div class="lb-boss-level-bar" id="lbBossLevelBar" style="display: none;">
+          <span class="lb-filter-label">ボスレベル:</span>
+          <div class="level-control-group lb-level-controls">
+            <button class="lvl-btn" id="lbBossLvlMinusBtn" title="前のレベル">-</button>
+            <span class="lvl-badge" id="lbBossLvlText">レベル1</span>
+            <button class="lvl-btn" id="lbBossLvlPlusBtn" title="次のレベル">+</button>
+          </div>
+        </div>
+
+        <!-- Leaderboard Table Container -->
+        <div class="lb-table-container">
+          <table class="lb-table">
+            <thead>
+              <tr>
+                <th style="width: 54px;">順位</th>
+                <th>プレイヤー</th>
+                <th id="lbColStatHeader" style="text-align: right;">スコア</th>
+                <th style="text-align: right; width: 110px;">日付</th>
+              </tr>
+            </thead>
+            <tbody id="lbTableBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+          <div id="lbLoadingText" class="lb-loading" style="display: none;">📡 オンライン記録を取得中...</div>
+          <div id="lbEmptyText" class="lb-empty" style="display: none;">まだ記録がありません。一番乗りを目指そう！</div>
+        </div>
+
+        <div class="modal-footer">
+          <span class="lb-footer-tip">※ 同一ネットワークの全端末とリアルタイム共有中</span>
+          <button class="modal-btn secondary" id="closeLeaderboardBottomBtn">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Record Register Modal (Shown when player finishes a game) -->
+    <div id="recordModal" class="custom-modal" style="display: none;">
+      <div class="modal-card record-card">
+        <div class="record-title" id="recordModalTitle">🎉 NEW RECORD!</div>
+        <div class="record-subtitle" id="recordModalSubtitle">リーダーボードにランクインしました！</div>
+        <div class="record-value-box">
+          <div class="record-val-label" id="recordValLabel">SCORE</div>
+          <div class="record-val-num" id="recordValNum">0</div>
+        </div>
+        <div class="record-input-group">
+          <label for="playerNameInput">名前を入力してください (最大15文字):</label>
+          <input type="text" id="playerNameInput" maxlength="15" placeholder="Player" autocomplete="off" />
+        </div>
+        <div class="record-btn-group">
+          <button class="modal-btn primary" id="submitRecordBtn">📡 登録して共有</button>
+          <button class="modal-btn secondary" id="skipRecordBtn">スキップ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
