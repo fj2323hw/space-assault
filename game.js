@@ -39,6 +39,22 @@ let slowMoTimer = 0;
 let timeScale = 1.0;
 const slashEffects = [];
 
+// Multiplayer UI element references (set after DOM ready)
+let menuStepMultiSub, menuStepMultiCreateMode, menuStepMultiCreateForm;
+let menuStepMultiJoinMode, menuStepMultiJoinForm, menuStepMultiWait;
+let multiCreateBtn, multiJoinBtn, backToModeFromMultiBtn;
+let multiCreateScoreBtn, backToMultiSubFromCreateBtn;
+let multiCreateName, multiCreatePasscode, playerCountMinusBtn, playerCountPlusBtn, playerCountVal;
+let multiCreateRoomBtn, multiCreateError, multiCreateConnecting, backToMultiCreateModeBtn;
+let multiJoinScoreBtn, backToMultiSubFromJoinBtn;
+let multiJoinName, multiJoinPasscode, multiJoinRoomBtn, multiJoinError, multiJoinConnecting, backToMultiJoinModeBtn;
+let multiPlayerList, multiWaitPasscode, multiWaitHint, multiStartGameBtn, backFromMultiWaitBtn;
+
+// Multiplayer runtime state
+let _multiMaxPlayers = 2;     // selected max players (create form)
+let _multiIsCreator  = true;  // true = host side, false = join side
+
+
 const guideText = document.getElementById('guideText');
 const guideOverlay = document.getElementById('guideOverlay');
 const scoreVal = document.getElementById('scoreVal');
@@ -560,10 +576,17 @@ function showToast(message) {
 
 // Menu Navigation Functions
 function showMenuStep(step) {
-  if (menuStepMain) menuStepMain.style.display = (step === 'main') ? 'flex' : 'none';
-  if (menuStepMode) menuStepMode.style.display = (step === 'mode') ? 'flex' : 'none';
-  if (menuStepSoloSub) menuStepSoloSub.style.display = (step === 'solo') ? 'flex' : 'none';
-  if (menuStepBossLevel) menuStepBossLevel.style.display = (step === 'bossLevel') ? 'flex' : 'none';
+  if (menuStepMain)     menuStepMain.style.display     = (step === 'main')           ? 'flex' : 'none';
+  if (menuStepMode)     menuStepMode.style.display     = (step === 'mode')           ? 'flex' : 'none';
+  if (menuStepSoloSub)  menuStepSoloSub.style.display  = (step === 'solo')           ? 'flex' : 'none';
+  if (menuStepBossLevel) menuStepBossLevel.style.display = (step === 'bossLevel')    ? 'flex' : 'none';
+  // Multiplayer steps
+  if (menuStepMultiSub)        menuStepMultiSub.style.display        = (step === 'multiSub')        ? 'flex' : 'none';
+  if (menuStepMultiCreateMode) menuStepMultiCreateMode.style.display = (step === 'multiCreateMode') ? 'flex' : 'none';
+  if (menuStepMultiCreateForm) menuStepMultiCreateForm.style.display = (step === 'multiCreateForm') ? 'flex' : 'none';
+  if (menuStepMultiJoinMode)   menuStepMultiJoinMode.style.display   = (step === 'multiJoinMode')   ? 'flex' : 'none';
+  if (menuStepMultiJoinForm)   menuStepMultiJoinForm.style.display   = (step === 'multiJoinForm')   ? 'flex' : 'none';
+  if (menuStepMultiWait)       menuStepMultiWait.style.display       = (step === 'multiWait')       ? 'flex' : 'none';
 }
 
 
@@ -576,6 +599,15 @@ function returnToStart() {
   if (guideOverlay) guideOverlay.style.display = 'flex';
   if (bossHud) bossHud.style.display = 'none';
   if (bossWarningOverlay) bossWarningOverlay.style.display = 'none';
+  // Cleanup multiplayer session if active
+  if (window.multiplayerManager) {
+    window.multiplayerManager.cleanup();
+    window.multiplayerManager = null;
+  }
+  window.isMultiplayerMode = false;
+  window.multiHpMult = 1;
+  player.isDown    = false;
+  player.reviveCount = 0;
   showMenuStep('main');
 
   // Reset battlefield state
@@ -632,6 +664,279 @@ addMenuBtnListeners(bossStartGameBtn, () => startGame('BOSS'));
 addMenuBtnListeners(backToSoloSubBtn, () => showMenuStep('solo'));
 addMenuBtnListeners(backToMainBtn, () => showMenuStep('main'));
 addMenuBtnListeners(backToModeBtn, () => showMenuStep('mode'));
+
+// --- Multiplayer Menu UI Initializer & Event Listeners ---
+function initMultiplayerUI() {
+  menuStepMultiSub        = document.getElementById('menuStepMultiSub');
+  menuStepMultiCreateMode = document.getElementById('menuStepMultiCreateMode');
+  menuStepMultiCreateForm = document.getElementById('menuStepMultiCreateForm');
+  menuStepMultiJoinMode   = document.getElementById('menuStepMultiJoinMode');
+  menuStepMultiJoinForm   = document.getElementById('menuStepMultiJoinForm');
+  menuStepMultiWait       = document.getElementById('menuStepMultiWait');
+
+  multiCreateBtn             = document.getElementById('multiCreateBtn');
+  multiJoinBtn               = document.getElementById('multiJoinBtn');
+  backToModeFromMultiBtn     = document.getElementById('backToModeFromMultiBtn');
+  multiCreateScoreBtn        = document.getElementById('multiCreateScoreBtn');
+  backToMultiSubFromCreateBtn= document.getElementById('backToMultiSubFromCreateBtn');
+  multiCreateName            = document.getElementById('multiCreateName');
+  multiCreatePasscode        = document.getElementById('multiCreatePasscode');
+  playerCountMinusBtn        = document.getElementById('playerCountMinusBtn');
+  playerCountPlusBtn         = document.getElementById('playerCountPlusBtn');
+  playerCountVal             = document.getElementById('playerCountVal');
+  multiCreateRoomBtn         = document.getElementById('multiCreateRoomBtn');
+  multiCreateError           = document.getElementById('multiCreateError');
+  multiCreateConnecting      = document.getElementById('multiCreateConnecting');
+  backToMultiCreateModeBtn   = document.getElementById('backToMultiCreateModeBtn');
+  multiJoinScoreBtn          = document.getElementById('multiJoinScoreBtn');
+  backToMultiSubFromJoinBtn  = document.getElementById('backToMultiSubFromJoinBtn');
+  multiJoinName              = document.getElementById('multiJoinName');
+  multiJoinPasscode          = document.getElementById('multiJoinPasscode');
+  multiJoinRoomBtn           = document.getElementById('multiJoinRoomBtn');
+  multiJoinError             = document.getElementById('multiJoinError');
+  multiJoinConnecting        = document.getElementById('multiJoinConnecting');
+  backToMultiJoinModeBtn     = document.getElementById('backToMultiJoinModeBtn');
+  multiPlayerList            = document.getElementById('multiPlayerList');
+  multiWaitPasscode          = document.getElementById('multiWaitPasscode');
+  multiWaitHint              = document.getElementById('multiWaitHint');
+  multiStartGameBtn          = document.getElementById('multiStartGameBtn');
+  backFromMultiWaitBtn       = document.getElementById('backFromMultiWaitBtn');
+
+  // Step 2: Multi mode button -> Multi sub (Create / Join)
+  addMenuBtnListeners(multiModeBtn, () => {
+    showMenuStep('multiSub');
+  });
+
+  addMenuBtnListeners(backToModeFromMultiBtn, () => {
+    showMenuStep('mode');
+  });
+
+  // Multi Sub: Create -> Multi Create Mode (Score Attack / Boss)
+  addMenuBtnListeners(multiCreateBtn, () => {
+    _multiIsCreator = true;
+    showMenuStep('multiCreateMode');
+  });
+
+  // Multi Sub: Join -> Multi Join Mode (Score Attack / Boss)
+  addMenuBtnListeners(multiJoinBtn, () => {
+    _multiIsCreator = false;
+    showMenuStep('multiJoinMode');
+  });
+
+  // Multi Create Mode: Score Attack -> Create Form
+  addMenuBtnListeners(multiCreateScoreBtn, () => {
+    showMenuStep('multiCreateForm');
+    updateCreateBtnState();
+  });
+
+  addMenuBtnListeners(backToMultiSubFromCreateBtn, () => {
+    showMenuStep('multiSub');
+  });
+
+  // Multi Join Mode: Score Attack -> Join Form
+  addMenuBtnListeners(multiJoinScoreBtn, () => {
+    showMenuStep('multiJoinForm');
+    updateJoinBtnState();
+  });
+
+  addMenuBtnListeners(backToMultiSubFromJoinBtn, () => {
+    showMenuStep('multiSub');
+  });
+
+  addMenuBtnListeners(backToMultiCreateModeBtn, () => {
+    showMenuStep('multiCreateMode');
+  });
+
+  addMenuBtnListeners(backToMultiJoinModeBtn, () => {
+    showMenuStep('multiJoinMode');
+  });
+
+  // Player count +/- buttons
+  if (playerCountMinusBtn) {
+    playerCountMinusBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (_multiMaxPlayers > 2) {
+        _multiMaxPlayers--;
+        if (playerCountVal) playerCountVal.innerText = `${_multiMaxPlayers}人`;
+      }
+    });
+  }
+  if (playerCountPlusBtn) {
+    playerCountPlusBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (_multiMaxPlayers < 5) {
+        _multiMaxPlayers++;
+        if (playerCountVal) playerCountVal.innerText = `${_multiMaxPlayers}人`;
+      }
+    });
+  }
+
+  function updateCreateBtnState() {
+    if (!multiCreateRoomBtn) return;
+    const name = multiCreateName ? multiCreateName.value.trim() : '';
+    const pass = multiCreatePasscode ? multiCreatePasscode.value.trim() : '';
+    multiCreateRoomBtn.disabled = !(name.length > 0 && pass.length === 4 && /^\d{4}$/.test(pass));
+  }
+
+  function updateJoinBtnState() {
+    if (!multiJoinRoomBtn) return;
+    const name = multiJoinName ? multiJoinName.value.trim() : '';
+    const pass = multiJoinPasscode ? multiJoinPasscode.value.trim() : '';
+    multiJoinRoomBtn.disabled = !(name.length > 0 && pass.length === 4 && /^\d{4}$/.test(pass));
+  }
+
+  if (multiCreateName) multiCreateName.addEventListener('input', updateCreateBtnState);
+  if (multiCreatePasscode) multiCreatePasscode.addEventListener('input', updateCreateBtnState);
+  if (multiJoinName) multiJoinName.addEventListener('input', updateJoinBtnState);
+  if (multiJoinPasscode) multiJoinPasscode.addEventListener('input', updateJoinBtnState);
+
+  // Host: Create Room Action
+  addMenuBtnListeners(multiCreateRoomBtn, async () => {
+    const name = multiCreateName.value.trim();
+    const pass = multiCreatePasscode.value.trim();
+    if (!name || pass.length !== 4) return;
+
+    if (multiCreateError) {
+      multiCreateError.innerText = '';
+      multiCreateError.classList.remove('visible');
+    }
+    if (multiCreateConnecting) multiCreateConnecting.style.display = 'flex';
+    multiCreateRoomBtn.disabled = true;
+
+    window.multiplayerManager = new MultiplayerManager();
+    setupMultiplayerCallbacks();
+
+    const res = await window.multiplayerManager.createRoom(name, pass, _multiMaxPlayers, 'SCORE_ATTACK');
+    if (multiCreateConnecting) multiCreateConnecting.style.display = 'none';
+
+    if (res.success) {
+      if (multiWaitPasscode) multiWaitPasscode.innerText = pass;
+      if (multiWaitHint) multiWaitHint.innerText = `合言葉【${pass}】を仲間に伝えてください`;
+      if (multiStartGameBtn) {
+        multiStartGameBtn.style.display = 'flex';
+        multiStartGameBtn.disabled = true; // Enabled when at least 2 players in room
+      }
+      renderWaitingRoomPlayers(window.multiplayerManager.lobbyPlayers, _multiMaxPlayers);
+      showMenuStep('multiWait');
+    } else {
+      multiCreateRoomBtn.disabled = false;
+      if (multiCreateError) {
+        multiCreateError.innerText = res.error || '部屋の作成に失敗しました';
+        multiCreateError.classList.add('visible');
+      }
+    }
+  });
+
+  // Client: Join Room Action
+  addMenuBtnListeners(multiJoinRoomBtn, async () => {
+    const name = multiJoinName.value.trim();
+    const pass = multiJoinPasscode.value.trim();
+    if (!name || pass.length !== 4) return;
+
+    if (multiJoinError) {
+      multiJoinError.innerText = '';
+      multiJoinError.classList.remove('visible');
+    }
+    if (multiJoinConnecting) multiJoinConnecting.style.display = 'flex';
+    multiJoinRoomBtn.disabled = true;
+
+    window.multiplayerManager = new MultiplayerManager();
+    setupMultiplayerCallbacks();
+
+    const res = await window.multiplayerManager.joinRoom(name, pass);
+    if (multiJoinConnecting) multiJoinConnecting.style.display = 'none';
+
+    if (res.success) {
+      if (multiWaitPasscode) multiWaitPasscode.innerText = pass;
+      if (multiWaitHint) multiWaitHint.innerText = 'ホストがゲームを開始するまでお待ちください...';
+      if (multiStartGameBtn) multiStartGameBtn.style.display = 'none';
+      showMenuStep('multiWait');
+    } else {
+      multiJoinRoomBtn.disabled = false;
+      if (multiJoinError) {
+        multiJoinError.innerText = res.error || '部屋が見つかりませんでした';
+        multiJoinError.classList.add('visible');
+      }
+    }
+  });
+
+  // Host: Start Multi Game
+  addMenuBtnListeners(multiStartGameBtn, () => {
+    if (!window.multiplayerManager || !window.multiplayerManager.isHost) return;
+    window.multiplayerManager.startMultiGame();
+  });
+
+  // Back from Waiting room
+  addMenuBtnListeners(backFromMultiWaitBtn, () => {
+    if (window.multiplayerManager) {
+      window.multiplayerManager.cleanup();
+      window.multiplayerManager = null;
+    }
+    showMenuStep('multiSub');
+  });
+}
+
+function renderWaitingRoomPlayers(players, maxP) {
+  if (!multiPlayerList) return;
+  multiPlayerList.innerHTML = '';
+  const total = maxP || 2;
+  const currentCount = (players && players.length) || 1;
+
+  for (let i = 0; i < total; i++) {
+    const p = players && players[i];
+    const slot = document.createElement('div');
+    if (p) {
+      slot.className = 'multi-player-slot joined';
+      const color = MP_PLAYER_COLORS[p.colorIndex % MP_PLAYER_COLORS.length] || '#58a6ff';
+      slot.innerHTML = `
+        <span class="player-dot" style="background: ${color}; box-shadow: 0 0 6px ${color};"></span>
+        <span>${escapeHtml(p.name)}</span>
+        ${i === 0 ? '<span class="multi-status-badge host-badge">HOST</span>' : '<span class="multi-status-badge">READY</span>'}
+      `;
+    } else {
+      slot.className = 'multi-player-slot empty';
+      slot.innerHTML = `
+        <span class="player-dot" style="background: #484f58;"></span>
+        <span>プレイヤー待機中...</span>
+      `;
+    }
+    multiPlayerList.appendChild(slot);
+  }
+
+  if (multiStartGameBtn && window.multiplayerManager && window.multiplayerManager.isHost) {
+    multiStartGameBtn.disabled = (currentCount < 2);
+  }
+}
+
+function escapeHtml(str) {
+  return String(str || '').replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+  }[tag] || tag));
+}
+
+function setupMultiplayerCallbacks() {
+  const mp = window.multiplayerManager;
+  if (!mp) return;
+
+  mp.onRoomUpdate = (players) => {
+    renderWaitingRoomPlayers(players, mp.maxPlayers);
+  };
+
+  mp.onGameStart = (cfg) => {
+    window.isMultiplayerMode = true;
+    window.multiHpMult = cfg.playerCount || 1;
+    startGame(cfg.gameMode || 'SCORE_ATTACK');
+    showToast(`👥 マルチプレイ開始！ (${cfg.playerCount}人)`);
+  };
+
+  mp.onGameOver = (data) => {
+    gameOver();
+  };
+
+  mp.onError = (msg) => {
+    showToast(`⚠️ ${msg}`);
+  };
+}
 
 // Boss Level Minus Button: "1より下はありません"
 function bossLvlMinus() {
@@ -1077,7 +1382,10 @@ const player = {
   summonWpCost: 20,
   summonMpCost: 50,
   summonCooldown: 1000,
-  lastSummonTime: 0
+  lastSummonTime: 0,
+  // Multiplayer: down/revival state
+  isDown:          false,   // True when player is defeated in multiplayer (awaiting revival)
+  reviveCount:     0        // How many times this player has been revived (maxHp decreases each time)
 };
 
 // Floating Text Class (for Graze and MP popup)
@@ -1537,15 +1845,15 @@ class Enemy {
     if (type === 'large') {
       // Large Enemy: radius 34 (Mobile) / 68 (PC), 5 HP to kill
       this.radius = 34 * scale;
-      this.hp = 5;
-      this.maxHp = 5;
+      this.hp = Math.ceil(5 * (window.multiHpMult || 1));
+      this.maxHp = this.hp;
       this.color = '#ff2a6d';
       this.rotSpeed = (Math.random() - 0.5) * 0.03;
     } else if (type === 'shooter') {
       // New Enemy (Shooter): radius 22 (Mobile) / 44 (PC), 3 HP, fires 1 aimed bullet at player
       this.radius = 22 * scale;
-      this.hp = 3;
-      this.maxHp = 3;
+      this.hp = Math.ceil(3 * (window.multiHpMult || 1));
+      this.maxHp = this.hp;
       this.color = '#a855f7'; // Neon purple / violet
       this.rotSpeed = (Math.random() - 0.5) * 0.04;
       this.hasShot = false;
@@ -1553,8 +1861,8 @@ class Enemy {
     } else {
       // Normal Enemy: radius 17 (Mobile) / 34 (PC), 2 HP
       this.radius = 17 * scale;
-      this.hp = 2;
-      this.maxHp = 2;
+      this.hp = Math.ceil(2 * (window.multiHpMult || 1));
+      this.maxHp = this.hp;
       this.color = '#ff5555';
       this.rotSpeed = (Math.random() - 0.5) * 0.06;
     }
@@ -1792,8 +2100,8 @@ class Boss {
     // Normal enemy radius is 17. 3x size = 51 on mobile. On PC, enemies are 2x (radius 102).
     const scale = checkIsMobile() ? 1.0 : 2.0;
     this.radius = 51 * scale;
-    this.hp = 100;
-    this.maxHp = 100;
+    this.hp = Math.ceil(100 * (window.multiHpMult || 1));
+    this.maxHp = this.hp;
     this.actionInterval = 3000; // 3 seconds per action
     this.lastActionTime = performance.now();
     this.angle = 0;
@@ -1918,8 +2226,17 @@ class Boss {
   }
 
   fireAimedBullet() {
-    const dx = player.x - this.x;
-    const dy = player.y - this.y;
+    // In multiplayer, pick a random alive player to target
+    let targetX = player.x, targetY = player.y;
+    if (window.isMultiplayerMode && window.multiplayerManager) {
+      const targets = window.multiplayerManager.getAliveTargets();
+      if (targets.length > 0) {
+        const t = targets[Math.floor(Math.random() * targets.length)];
+        targetX = t.x; targetY = t.y;
+      }
+    }
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
     const dist = Math.hypot(dx, dy);
 
     let dirX = -1;
@@ -2499,9 +2816,24 @@ function activateSkill() {
     player.isDashing = true;
     player.dashDuration = 35;
 
-    // Trigger Slow Motion for ~1.0 second
-    slowMoTimer = 1.0;
-    timeScale = 0.15;
+    // Trigger Slow Motion for ~1.0 second (Solo only)
+    if (!window.isMultiplayerMode) {
+      slowMoTimer = 1.0;
+      timeScale = 0.15;
+    } else {
+      slowMoTimer = 0;
+      timeScale = 1.0;
+    }
+
+    if (window.isMultiplayerMode && window.multiplayerManager) {
+      window.multiplayerManager.sendSkillEvent({
+        skill: 'slash',
+        startX, startY,
+        endX: destX, endY: destY,
+        targetX: target.x, targetY: target.y,
+        targetRadius: target.radius || 30
+      });
+    }
 
     // Flash screen intensely
     if (ultScreenFlash) {
@@ -2627,6 +2959,15 @@ function activateSkill() {
   const wave = new Shockwave(player.x, player.y, 125, '#38bdf8', 9);
   shockwaves.push(wave);
   screenShake = 14;
+
+  if (window.isMultiplayerMode && window.multiplayerManager) {
+    window.multiplayerManager.sendSkillEvent({
+      skill: 'blink',
+      startX, startY,
+      destX: player.x,
+      destY: player.y
+    });
+  }
 
   // Destroy nearby enemies with shockwave!
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -2762,6 +3103,7 @@ function addScore(pts) {
 // Damage Player (20 Damage per hit)
 function takeDamage() {
   if (player.invincibleTimer > 0 || player.isDashing || player.isGuarding) return;
+  if (player.isDown) return; // Already down
 
   player.hp = Math.max(0, player.hp - 20);
   player.invincibleTimer = 75; // ~1.25s of invincibility
@@ -2772,7 +3114,20 @@ function takeDamage() {
   setTimeout(() => { damageFlash.style.opacity = '0'; }, 150);
 
   if (player.hp <= 0) {
-    gameOver();
+    if (window.isMultiplayerMode && window.multiplayerManager) {
+      // Multiplayer: enter DOWN state instead of game over
+      player.isDown = true;
+      player.hp     = 0;
+      player.invincibleTimer = 99999; // Prevent further damage while down
+      floatingTexts.push(new FloatingText(player.x, player.y - 30, '💀 DOWN...', '#f43f5e'));
+      showToast('💀 やられた！ 味方に救助してもらおう...');
+      window.multiplayerManager.broadcastDown();
+      if (window.multiplayerManager.isHost) {
+        window.multiplayerManager._checkAllDown();
+      }
+    } else {
+      gameOver();
+    }
   }
 }
 
@@ -2863,6 +3218,10 @@ function startGame(mode = 'SCORE_ATTACK') {
   player.hp = player.maxHp;
   player.mp = player.maxMp;
   player.wp = 0;
+  player.isDown     = false;
+  player.reviveCount = 0;
+  player.maxHp      = 100;  // Reset to base (may have been reduced by revival in previous game)
+  player.hp         = 100;
   if (wpVal) wpVal.innerText = '0';
   player.x = canvas.width / 2;
   player.y = canvas.height / 2;
@@ -3298,50 +3657,62 @@ function gameLoop(currentTime) {
   const simDt = dt * timeScale;
 
   if (gameState === 'PLAYING') {
-    // MP Natural Regeneration (2 MP / sec)
-    player.mp = Math.min(player.maxMp, player.mp + player.mpRegenRate * simDt);
+    // Multiplayer revival processing
+    if (window.isMultiplayerMode && window.multiplayerManager) {
+      window.multiplayerManager.checkRevival(dt);
+    }
+
+    // MP Natural Regeneration (2 MP / sec) - only when alive
+    if (!player.isDown) {
+      player.mp = Math.min(player.maxMp, player.mp + player.mpRegenRate * simDt);
+    }
     if (player.grazeEffectTimer > 0) player.grazeEffectTimer--;
 
-    // 1. Player Movement Processing
-    let moveX = 0;
-    let moveY = 0;
+    // 1. Player Movement Processing (only if not down)
+    if (!player.isDown) {
+      let moveX = 0;
+      let moveY = 0;
 
-    if (keys.w) moveY -= 1;
-    if (keys.s) moveY += 1;
-    if (keys.a) moveX -= 1;
-    if (keys.d) moveX += 1;
+      if (keys.w) moveY -= 1;
+      if (keys.s) moveY += 1;
+      if (keys.a) moveX -= 1;
+      if (keys.d) moveX += 1;
 
-    const keyLen = Math.hypot(moveX, moveY);
-    if (keyLen > 0) {
-      moveX /= keyLen;
-      moveY /= keyLen;
-    }
-
-    if (Math.abs(touchMoveVec.x) > 0.05 || Math.abs(touchMoveVec.y) > 0.05) {
-      moveX += touchMoveVec.x;
-      moveY += touchMoveVec.y;
-    }
-
-    const totalMoveLen = Math.hypot(moveX, moveY);
-    if (totalMoveLen > 0) {
-      const clampedPower = Math.min(1.0, totalMoveLen);
-      const normalizedDirX = moveX / totalMoveLen;
-      const normalizedDirY = moveY / totalMoveLen;
-
-      player.vx += normalizedDirX * player.speed * 0.35 * clampedPower;
-      player.vy += normalizedDirY * player.speed * 0.35 * clampedPower;
-
-      if (Math.random() < 0.4) {
-        particles.push(new Particle(
-          player.x - Math.cos(player.angle) * 12 + (Math.random() - 0.5) * 6,
-          player.y - Math.sin(player.angle) * 12 + (Math.random() - 0.5) * 6,
-          -normalizedDirX * 1.5 + (Math.random() - 0.5),
-          -normalizedDirY * 1.5 + (Math.random() - 0.5),
-          '#238636',
-          Math.random() * 3 + 1,
-          18
-        ));
+      const keyLen = Math.hypot(moveX, moveY);
+      if (keyLen > 0) {
+        moveX /= keyLen;
+        moveY /= keyLen;
       }
+
+      if (Math.abs(touchMoveVec.x) > 0.05 || Math.abs(touchMoveVec.y) > 0.05) {
+        moveX += touchMoveVec.x;
+        moveY += touchMoveVec.y;
+      }
+
+      const totalMoveLen = Math.hypot(moveX, moveY);
+      if (totalMoveLen > 0) {
+        const clampedPower = Math.min(1.0, totalMoveLen);
+        const normalizedDirX = moveX / totalMoveLen;
+        const normalizedDirY = moveY / totalMoveLen;
+
+        player.vx += normalizedDirX * player.speed * 0.35 * clampedPower;
+        player.vy += normalizedDirY * player.speed * 0.35 * clampedPower;
+
+        if (Math.random() < 0.4) {
+          particles.push(new Particle(
+            player.x - Math.cos(player.angle) * 12 + (Math.random() - 0.5) * 6,
+            player.y - Math.sin(player.angle) * 12 + (Math.random() - 0.5) * 6,
+            -normalizedDirX * 1.5 + (Math.random() - 0.5),
+            -normalizedDirY * 1.5 + (Math.random() - 0.5),
+            '#238636',
+            Math.random() * 3 + 1,
+            18
+          ));
+        }
+      }
+    } else {
+      player.vx = 0;
+      player.vy = 0;
     }
 
     // Player Physics Update
@@ -3357,18 +3728,22 @@ function gameLoop(currentTime) {
     if (player.y > canvas.height - player.radius) { player.y = canvas.height - player.radius; player.vy = 0; }
 
     // Aim Angle
-    player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
-
-    // Shooting Action
-    if (isShooting) {
-      fireBullet();
+    if (!player.isDown) {
+      player.angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
     }
-    if (isHomingShooting) {
-      fireHomingBullet();
+
+    // Shooting Action (only if not down)
+    if (!player.isDown) {
+      if (isShooting) {
+        fireBullet();
+      }
+      if (isHomingShooting) {
+        fireHomingBullet();
+      }
     }
 
     // Invincibility & Dash Timer Countdown
-    if (player.invincibleTimer > 0) player.invincibleTimer--;
+    if (player.invincibleTimer > 0 && !player.isDown) player.invincibleTimer--;
     if (player.dashDuration > 0) {
       player.dashDuration--;
       if (player.dashDuration <= 0) player.isDashing = false;
@@ -3438,8 +3813,9 @@ function gameLoop(currentTime) {
 
     // 2. Enemy Spawning Logic
     // In Score Attack mode, spawn continuously BUT stop spawning while Boss or Warning is active!
-    // In Boss mode, minion enemies are only summoned by Boss skills.
-    if (gameMode === 'SCORE_ATTACK' && !isBossActive) {
+    // In Multiplayer, only the Host spawns enemies.
+    const isClientMP = window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost;
+    if (!isClientMP && gameMode === 'SCORE_ATTACK' && !isBossActive) {
       const spawnRate = Math.max(650, 1500 - score * 0.6);
       if (currentTime - lastEnemySpawnTime > spawnRate) {
         spawnEnemy();
@@ -3492,7 +3868,7 @@ function gameLoop(currentTime) {
     }
 
     // 2b. Boss Update
-    if (boss && boss.hp > 0) {
+    if (!isClientMP && boss && boss.hp > 0) {
       boss.update(currentTime);
     }
 
@@ -3949,19 +4325,36 @@ function gameLoop(currentTime) {
     minion.draw(ctx);
   }
 
-  // Enemies
-  for (const e of enemies) {
-    e.draw(ctx);
+  // Enemies (Local / Host or Client Remote)
+  if (isClientMP && window.multiplayerManager) {
+    for (const re of window.multiplayerManager.remoteGameObjects.enemies) {
+      re.draw(ctx);
+    }
+    if (window.multiplayerManager.remoteGameObjects.boss) {
+      window.multiplayerManager.remoteGameObjects.boss.draw(ctx);
+    }
+    for (const rbb of window.multiplayerManager.remoteGameObjects.bossBullets) {
+      rbb.draw(ctx);
+    }
+  } else {
+    for (const e of enemies) {
+      e.draw(ctx);
+    }
+    // Boss
+    if (boss && boss.hp > 0) {
+      boss.draw(ctx);
+    }
+    // Boss Bullets
+    for (const bb of bossBullets) {
+      bb.draw(ctx);
+    }
   }
 
-  // Boss
-  if (boss && boss.hp > 0) {
-    boss.draw(ctx);
-  }
-
-  // Boss Bullets
-  for (const bb of bossBullets) {
-    bb.draw(ctx);
+  // Remote Players (Multiplayer)
+  if (window.isMultiplayerMode && window.multiplayerManager) {
+    for (const rp of Object.values(window.multiplayerManager.remotePlayers)) {
+      rp.draw(ctx);
+    }
   }
 
   // Particles
@@ -3986,62 +4379,105 @@ function gameLoop(currentTime) {
 
   // Player Rendering
   if (gameState === 'PLAYING') {
-    // Graze Circle Indicator
-    ctx.save();
-    ctx.translate(player.x, player.y);
-    ctx.beginPath();
-    ctx.arc(0, 0, player.grazeRadius, 0, Math.PI * 2);
-    if (player.grazeEffectTimer > 0) {
-      ctx.strokeStyle = '#79c0ff';
-      ctx.lineWidth = 2.5;
-      ctx.shadowColor = '#58a6ff';
-      ctx.shadowBlur = 12;
-    } else {
-      ctx.strokeStyle = 'rgba(88, 166, 255, 0.22)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-    }
-    ctx.stroke();
-    ctx.restore();
-
-    // Invincibility flashing
-    const isFlashing = player.invincibleTimer > 0 && Math.floor(player.invincibleTimer / 4) % 2 === 0;
-
-    if (!isFlashing) {
+    if (player.isDown) {
+      // Draw downed state for local player
+      const t = performance.now() * 0.003;
+      const pulse = 0.35 + Math.abs(Math.sin(t)) * 0.65;
       ctx.save();
       ctx.translate(player.x, player.y);
-      ctx.rotate(player.angle);
-
-      ctx.shadowColor = player.isDashing ? '#38bdf8' : player.glowColor;
-      ctx.shadowBlur = player.isDashing ? 24 : 16;
-
-      // Ship body
-      ctx.fillStyle = player.isDashing ? '#79c0ff' : player.color;
+      ctx.globalAlpha = pulse;
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = '#f43f5e';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.moveTo(22, 0);
       ctx.lineTo(-14, -13);
       ctx.lineTo(-8, 0);
       ctx.lineTo(-14, 13);
       ctx.closePath();
-      ctx.fill();
-
-      // Ship core
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = '#f0f6fc';
-      ctx.beginPath();
-      ctx.arc(2, 0, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Thruster flame
-      ctx.fillStyle = '#3fb950';
-      ctx.beginPath();
-      ctx.moveTo(-9, -4);
-      ctx.lineTo(-16 - (Math.random() * 6 + 2), 0);
-      ctx.lineTo(-9, 4);
-      ctx.closePath();
-      ctx.fill();
-
+      ctx.stroke();
       ctx.restore();
+
+      // Graze Circle Indicator (for allies to enter and revive)
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, player.grazeRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.restore();
+
+      // DOWN text
+      ctx.save();
+      ctx.font = 'bold 13px -apple-system, sans-serif';
+      ctx.fillStyle = '#f43f5e';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowColor = '#f43f5e';
+      ctx.shadowBlur = 8;
+      ctx.fillText('DOWN - 味方の救助を待っています', player.x, player.y - 25);
+      ctx.restore();
+    } else {
+      // Graze Circle Indicator
+      ctx.save();
+      ctx.translate(player.x, player.y);
+      ctx.beginPath();
+      ctx.arc(0, 0, player.grazeRadius, 0, Math.PI * 2);
+      if (player.grazeEffectTimer > 0) {
+        ctx.strokeStyle = '#79c0ff';
+        ctx.lineWidth = 2.5;
+        ctx.shadowColor = '#58a6ff';
+        ctx.shadowBlur = 12;
+      } else {
+        ctx.strokeStyle = 'rgba(88, 166, 255, 0.22)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Invincibility flashing
+      const isFlashing = player.invincibleTimer > 0 && Math.floor(player.invincibleTimer / 4) % 2 === 0;
+
+      if (!isFlashing) {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.rotate(player.angle);
+
+        ctx.shadowColor = player.isDashing ? '#38bdf8' : player.glowColor;
+        ctx.shadowBlur = player.isDashing ? 24 : 16;
+
+        // Ship body
+        ctx.fillStyle = player.isDashing ? '#79c0ff' : player.color;
+        ctx.beginPath();
+        ctx.moveTo(22, 0);
+        ctx.lineTo(-14, -13);
+        ctx.lineTo(-8, 0);
+        ctx.lineTo(-14, 13);
+        ctx.closePath();
+        ctx.fill();
+
+        // Ship core
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#f0f6fc';
+        ctx.beginPath();
+        ctx.arc(2, 0, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Thruster flame
+        ctx.fillStyle = '#3fb950';
+        ctx.beginPath();
+        ctx.moveTo(-9, -4);
+        ctx.lineTo(-16 - (Math.random() * 6 + 2), 0);
+        ctx.lineTo(-9, 4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+      }
     }
 
     // Barrier / Guard Shield Visual Effect
@@ -4100,6 +4536,13 @@ function gameLoop(currentTime) {
   ctx.restore();
 
   requestAnimationFrame(gameLoop);
+}
+
+// Initialize Multiplayer UI Elements & Listeners
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMultiplayerUI);
+} else {
+  initMultiplayerUI();
 }
 
 // Start Game

@@ -1684,6 +1684,162 @@
     .record-btn-group .modal-btn {
       flex: 1;
     }
+
+    /* ================================================
+       MULTIPLAYER UI STYLES
+       ================================================ */
+    .multi-input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      width: 100%;
+      margin-bottom: 4px;
+    }
+    .multi-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .multi-field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: #8b949e;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .multi-field input[type="text"],
+    .multi-field input[type="number"] {
+      width: 100%;
+      padding: 11px 14px;
+      background: rgba(13, 17, 23, 0.95);
+      border: 1px solid rgba(88, 166, 255, 0.45);
+      border-radius: 10px;
+      color: #f0f6fc;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      font-family: inherit;
+    }
+    .multi-field input:focus {
+      border-color: #58a6ff;
+      box-shadow: 0 0 10px rgba(88, 166, 255, 0.3);
+    }
+    .multi-field input::placeholder { color: #484f58; }
+    .multi-field input.passcode-input {
+      font-family: monospace;
+      font-size: 22px;
+      letter-spacing: 8px;
+      text-align: center;
+    }
+    .player-count-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(13, 17, 23, 0.8);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      border-radius: 12px;
+      padding: 8px 14px;
+      justify-content: center;
+    }
+    .player-count-val {
+      font-size: 20px;
+      font-weight: 900;
+      color: #f0f6fc;
+      min-width: 80px;
+      text-align: center;
+      font-family: monospace;
+    }
+    .multi-wait-card {
+      background: rgba(13, 17, 23, 0.85);
+      border: 1px solid rgba(88, 166, 255, 0.35);
+      border-radius: 18px;
+      padding: 18px 22px;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 16px;
+    }
+    .multi-wait-title {
+      font-size: 13px;
+      font-weight: 800;
+      color: #58a6ff;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .multi-wait-room-id {
+      font-family: monospace;
+      font-size: 18px;
+      color: #ffd33d;
+      background: rgba(255, 211, 61, 0.12);
+      border: 1px solid rgba(255, 211, 61, 0.3);
+      border-radius: 8px;
+      padding: 3px 10px;
+      letter-spacing: 4px;
+    }
+    .multi-player-list { display: flex; flex-direction: column; gap: 8px; }
+    .multi-player-slot {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      background: rgba(33, 38, 45, 0.7);
+      border-radius: 10px;
+      border: 1px solid rgba(48, 54, 61, 0.8);
+      font-size: 14px;
+      color: #e6edf3;
+      font-weight: 600;
+      transition: border-color 0.2s;
+    }
+    .multi-player-slot.joined { border-color: rgba(88, 166, 255, 0.4); }
+    .multi-player-slot.empty { color: #484f58; font-style: italic; font-weight: 400; }
+    .player-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .multi-status-badge {
+      margin-left: auto;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 8px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .multi-status-badge.host-badge {
+      background: rgba(88, 166, 255, 0.2);
+      color: #58a6ff;
+      border: 1px solid rgba(88, 166, 255, 0.4);
+    }
+    .multi-start-btn {
+      background: linear-gradient(135deg, #238636, #2ea043);
+      color: #ffffff;
+      font-size: 17px;
+      font-weight: 800;
+      border: none;
+      border-radius: 28px;
+      padding: 14px 40px;
+      box-shadow: 0 0 20px rgba(46, 160, 67, 0.5);
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: transform 0.15s, box-shadow 0.2s;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .multi-start-btn:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+    .multi-start-btn:not(:disabled):hover { transform: scale(1.03); box-shadow: 0 0 30px rgba(46,160,67,0.8); }
+    .multi-start-btn:not(:disabled):active { transform: scale(0.96); }
+    .multi-connecting { display: flex; align-items: center; gap: 10px; color: #58a6ff; font-size: 14px; font-weight: 600; margin: 8px 0; }
+    .spinner { width: 18px; height: 18px; border: 3px solid rgba(88,166,255,0.25); border-top-color: #58a6ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .multi-error-msg {
+      color: #f85149; font-size: 13px; font-weight: 700; text-align: center;
+      padding: 6px 12px; background: rgba(248,81,73,0.12); border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 8px; display: none; margin-top: 4px;
+    }
+    .multi-error-msg.visible { display: block; }
+    .multi-wait-hint { font-size: 12px; color: #8b949e; text-align: center; margin-top: 4px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -1898,9 +2054,8 @@
           <button class="menu-btn primary" id="soloModeBtn">
             <span>👤 ソロプレイ</span>
           </button>
-          <button class="menu-btn locked" id="multiModeBtn" disabled>
+          <button class="menu-btn" id="multiModeBtn">
             <span>👥 マルチプレイ</span>
-            <span class="lock-badge">🔒 準備中</span>
           </button>
         </div>
         <button class="menu-back-link" id="backToMainBtn">← タイトルへ戻る</button>
@@ -1943,6 +2098,112 @@
         </button>
         <button class="menu-back-link" id="backToSoloSubBtn">← ソロモード選択へ戻る</button>
       </div>
+
+      <!-- ===== MULTIPLAYER MENU STEPS ===== -->
+
+      <!-- Multi Step A: Create / Join -->
+      <div id="menuStepMultiSub" class="menu-step" style="display: none;">
+        <div class="menu-step-title">👥 マルチプレイ</div>
+        <div class="menu-btn-group">
+          <button class="menu-btn primary" id="multiCreateBtn">🏠 部屋を作る</button>
+          <button class="menu-btn" id="multiJoinBtn">🔗 部屋に参加</button>
+        </div>
+        <button class="menu-back-link" id="backToModeFromMultiBtn">← モード選択へ戻る</button>
+      </div>
+
+      <!-- Multi Step B1: Create — Game Mode Selection -->
+      <div id="menuStepMultiCreateMode" class="menu-step" style="display: none;">
+        <div class="menu-step-title">ゲームモード選択（作成）</div>
+        <div class="menu-btn-group">
+          <button class="menu-btn primary" id="multiCreateScoreBtn">⚡ スコアアタック</button>
+          <button class="menu-btn locked" id="multiCreateBossBtn" disabled>
+            <span>👹 ボス戦</span>
+            <span class="lock-badge">🔒</span>
+          </button>
+        </div>
+        <button class="menu-back-link" id="backToMultiSubFromCreateBtn">← 戻る</button>
+      </div>
+
+      <!-- Multi Step B2: Create — Room Form -->
+      <div id="menuStepMultiCreateForm" class="menu-step" style="display: none;">
+        <div class="menu-step-title">⚡ 部屋を作る</div>
+        <div class="multi-input-group">
+          <div class="multi-field">
+            <label>プレイヤー名</label>
+            <input type="text" id="multiCreateName" maxlength="12" placeholder="名前を入力（12文字以内）" autocomplete="off" />
+          </div>
+          <div class="multi-field">
+            <label>プレイヤー数（2〜5人）</label>
+            <div class="player-count-row">
+              <button class="lvl-btn" id="playerCountMinusBtn">−</button>
+              <span class="player-count-val" id="playerCountVal">2人</span>
+              <button class="lvl-btn" id="playerCountPlusBtn">＋</button>
+            </div>
+          </div>
+          <div class="multi-field">
+            <label>4桁の合言葉</label>
+            <input type="text" id="multiCreatePasscode" class="passcode-input" maxlength="4" placeholder="0000" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" />
+          </div>
+        </div>
+        <div class="multi-error-msg" id="multiCreateError"></div>
+        <div class="multi-connecting" id="multiCreateConnecting" style="display:none; justify-content:center;">
+          <div class="spinner"></div><span>部屋を作成中...</span>
+        </div>
+        <button class="boss-start-btn" id="multiCreateRoomBtn" disabled style="margin-top:8px;">🏠 部屋を作成</button>
+        <button class="menu-back-link" id="backToMultiCreateModeBtn">← 戻る</button>
+      </div>
+
+      <!-- Multi Step C1: Join — Game Mode Selection -->
+      <div id="menuStepMultiJoinMode" class="menu-step" style="display: none;">
+        <div class="menu-step-title">ゲームモード選択（参加）</div>
+        <div class="menu-btn-group">
+          <button class="menu-btn primary" id="multiJoinScoreBtn">⚡ スコアアタック</button>
+          <button class="menu-btn locked" id="multiJoinBossBtn" disabled>
+            <span>👹 ボス戦</span>
+            <span class="lock-badge">🔒</span>
+          </button>
+        </div>
+        <button class="menu-back-link" id="backToMultiSubFromJoinBtn">← 戻る</button>
+      </div>
+
+      <!-- Multi Step C2: Join — Join Form -->
+      <div id="menuStepMultiJoinForm" class="menu-step" style="display: none;">
+        <div class="menu-step-title">🔗 部屋に参加</div>
+        <div class="multi-input-group">
+          <div class="multi-field">
+            <label>プレイヤー名</label>
+            <input type="text" id="multiJoinName" maxlength="12" placeholder="名前を入力（12文字以内）" autocomplete="off" />
+          </div>
+          <div class="multi-field">
+            <label>4桁の合言葉</label>
+            <input type="text" id="multiJoinPasscode" class="passcode-input" maxlength="4" placeholder="0000" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" />
+          </div>
+        </div>
+        <div class="multi-error-msg" id="multiJoinError"></div>
+        <div class="multi-connecting" id="multiJoinConnecting" style="display:none; justify-content:center;">
+          <div class="spinner"></div><span>部屋を検索中...</span>
+        </div>
+        <button class="boss-start-btn" id="multiJoinRoomBtn" disabled style="margin-top:8px;">🔗 参加する</button>
+        <button class="menu-back-link" id="backToMultiJoinModeBtn">← 戻る</button>
+      </div>
+
+      <!-- Multi Step D: Waiting Room -->
+      <div id="menuStepMultiWait" class="menu-step" style="display: none;">
+        <div class="menu-step-title">待機室</div>
+        <div class="multi-wait-card">
+          <div class="multi-wait-title">
+            <span>PLAYERS</span>
+            <span class="multi-wait-room-id" id="multiWaitPasscode">----</span>
+          </div>
+          <div class="multi-player-list" id="multiPlayerList">
+            <!-- dynamically populated -->
+          </div>
+        </div>
+        <p class="multi-wait-hint" id="multiWaitHint">ホストがゲームを開始するまでお待ちください...</p>
+        <button class="multi-start-btn" id="multiStartGameBtn" disabled style="display:none;">▶ ゲーム開始</button>
+        <button class="menu-back-link" id="backFromMultiWaitBtn">← 部屋を退出</button>
+      </div>
+
     </div>
 
     <!-- Game Over Screen -->
@@ -2052,6 +2313,11 @@
       console.warn("Firebase initialization warning:", e);
     }
   </script>
+
+  <!-- PeerJS WebRTC SDK -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <!-- Multiplayer System (depends on PeerJS + Firebase) -->
+  <script src="multiplayer.js"></script>
 
   <script src="game.js"></script>
 </body>
