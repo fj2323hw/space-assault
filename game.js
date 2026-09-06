@@ -4059,11 +4059,20 @@ function gameLoop(currentTime) {
 
     // 4. Enemies Update & Collision Checks
     if (isClientMP && window.multiplayerManager) {
-      // Client in MP: test bullets vs remoteGameObjects.enemies and player vs remote enemies
+      // Advance Remote Boss & Bullets
+      if (window.multiplayerManager.remoteGameObjects.boss) {
+        window.multiplayerManager.remoteGameObjects.boss.update(timeScale);
+      }
+      for (const rbb of (window.multiplayerManager.remoteGameObjects.bossBullets || [])) {
+        rbb.update(timeScale);
+      }
+
+      // Client in MP: advance remote enemies and test collisions
       const remoteEnemies = window.multiplayerManager.remoteGameObjects.enemies || [];
       for (let i = remoteEnemies.length - 1; i >= 0; i--) {
         const re = remoteEnemies[i];
         if (!re || re.hp <= 0) continue;
+        re.update(timeScale);
 
         let enemyDestroyed = false;
         // Collision: Bullets vs Remote Enemy

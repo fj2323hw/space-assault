@@ -247,13 +247,57 @@ class RemotePlayer {
 }
 
 // ========================================================
-// RemoteEnemy — lightweight draw-only enemy for clients
+// RemoteEnemy — lightweight predictive enemy for clients
 // ========================================================
 class RemoteEnemy {
   constructor(data) {
-    Object.assign(this, data);
     this.id = data.id;
+    this.x = data.x || 0;
+    this.y = data.y || 0;
+    this.targetX = this.x;
+    this.targetY = this.y;
+    this.vx = data.vx || 0;
+    this.vy = data.vy || 0;
     this.angle = data.angle || 0;
+    this.targetAngle = this.angle;
+    this.hp = data.hp;
+    this.maxHp = data.maxHp;
+    this.type = data.type;
+    this.radius = data.radius;
+    this.hasShot = data.hasShot;
+    this.hasGrazed = false;
+  }
+
+  updateState(data) {
+    this.targetX = data.x;
+    this.targetY = data.y;
+    if (data.vx != null) this.vx = data.vx;
+    if (data.vy != null) this.vy = data.vy;
+    if (data.angle != null) this.targetAngle = data.angle;
+    this.hp = data.hp;
+    this.maxHp = data.maxHp;
+    this.type = data.type;
+    this.radius = data.radius;
+    this.hasShot = data.hasShot;
+
+    // If position diverged drastically (> 100px), snap to avoid rubber-banding
+    if (Math.hypot(this.targetX - this.x, this.targetY - this.y) > 100) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    }
+  }
+
+  update(ts = 1.0) {
+    // Dead reckoning: advance with known velocity
+    this.x += this.vx * ts;
+    this.y += this.vy * ts;
+    this.targetX += this.vx * ts;
+    this.targetY += this.vy * ts;
+
+    // Smooth lerp toward authoritative server target
+    this.x += (this.targetX - this.x) * 0.35;
+    this.y += (this.targetY - this.y) * 0.35;
+    this.angle += (this.targetAngle - this.angle) * 0.35;
   }
 
   draw(ctx) {
@@ -340,8 +384,30 @@ class RemoteEnemy {
 class RemoteBoss {
   constructor(data) {
     Object.assign(this, data);
-    this.angle  = data.angle || 0;
-    this._phase = 0;
+    this.targetX = data.x || 0;
+    this.targetY = data.y || 0;
+    this.angle   = data.angle || 0;
+    this._phase  = 0;
+    this.hasGrazed = false;
+  }
+
+  updateState(data) {
+    this.targetX = data.x;
+    this.targetY = data.y;
+    this.hp      = data.hp;
+    this.maxHp   = data.maxHp;
+    this.radius  = data.radius;
+    if (data.angle != null) this.angle = data.angle;
+
+    if (Math.hypot(this.targetX - this.x, this.targetY - this.y) > 150) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    }
+  }
+
+  update(ts = 1.0) {
+    this.x += (this.targetX - this.x) * 0.35;
+    this.y += (this.targetY - this.y) * 0.35;
   }
 
   draw(ctx) {
@@ -404,8 +470,34 @@ class RemoteBoss {
 class RemoteBossBullet {
   constructor(data) {
     Object.assign(this, data);
-    this.radius = data.radius || 7;
+    this.targetX = data.x || 0;
+    this.targetY = data.y || 0;
+    this.vx      = data.vx || 0;
+    this.vy      = data.vy || 0;
+    this.radius  = data.radius || 7;
+    this.hasGrazed = false;
   }
+
+  updateState(data) {
+    this.targetX = data.x;
+    this.targetY = data.y;
+    if (data.vx != null) this.vx = data.vx;
+    if (data.vy != null) this.vy = data.vy;
+    if (Math.hypot(this.targetX - this.x, this.targetY - this.y) > 80) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    }
+  }
+
+  update(ts = 1.0) {
+    this.x += this.vx * ts;
+    this.y += this.vy * ts;
+    this.targetX += this.vx * ts;
+    this.targetY += this.vy * ts;
+    this.x += (this.targetX - this.x) * 0.35;
+    this.y += (this.targetY - this.y) * 0.35;
+  }
+
   draw(ctx) {
     ctx.save();
     ctx.shadowColor = '#ff1744';
@@ -793,22 +885,59 @@ class MultiplayerManager {
   _applyGameState(gs) {
     const ro = this.remoteGameObjects;
 
-    // Enemies
-    ro.enemies = (gs.enemies || []).map(e => new RemoteEnemy(e));
+    // Enemies: Map by id to preserve smooth interpolation
+    const incomingEnemies = gs.enemies || [];
+    const existingMap = new Map((ro.enemies || []).map(e => [e.id, e]));
+    const updatedEnemies = [];
+
+    for (const data of incomingEnemies) {
+      if (existingMap.has(data.id)) {
+        const existing = existingMap.get(data.id);
+        existing.updateState(data);
+        updatedEnemies.push(existing);
+      } else {
+        updatedEnemies.push(new RemoteEnemy(data));
+      }
+    }
+    ro.enemies = updatedEnemies;
 
     // Boss
     if (gs.boss) {
       if (!ro.boss) {
         ro.boss = new RemoteBoss(gs.boss);
       } else {
-        Object.assign(ro.boss, gs.boss);
+        ro.boss.updateState(gs.boss);
       }
     } else {
       ro.boss = null;
     }
 
-    // Boss Bullets
-    ro.bossBullets = (gs.bossBullets || []).map(b => new RemoteBossBullet(b));
+    // Boss Bullets: Match closest existing or create new
+    const incomingBullets = gs.bossBullets || [];
+    const oldBullets = ro.bossBullets || [];
+    const updatedBullets = [];
+    const usedIndices = new Set();
+
+    for (const bData of incomingBullets) {
+      let matchedIdx = -1;
+      let minDistance = 60; // Max distance to associate bullet
+      for (let i = 0; i < oldBullets.length; i++) {
+        if (usedIndices.has(i)) continue;
+        const d = Math.hypot(oldBullets[i].x - bData.x, oldBullets[i].y - bData.y);
+        if (d < minDistance) {
+          minDistance = d;
+          matchedIdx = i;
+        }
+      }
+      if (matchedIdx !== -1) {
+        usedIndices.add(matchedIdx);
+        oldBullets[matchedIdx].updateState(bData);
+        updatedBullets.push(oldBullets[matchedIdx]);
+      } else {
+        updatedBullets.push(new RemoteBossBullet(bData));
+      }
+    }
+    ro.bossBullets = updatedBullets;
 
     // Score/time sync
     if (typeof score !== 'undefined' && gs.score != null) score = gs.score;
@@ -1124,13 +1253,13 @@ class MultiplayerManager {
       this.sendPlayerState();
     }, 33);
 
-    // Game state (host only): ~10fps
+    // Game state (host only): ~20fps (50ms)
     if (this.isHost) {
       if (this._gameStateInterval) clearInterval(this._gameStateInterval);
       this._gameStateInterval = setInterval(() => {
         if (!this.active || typeof gameState === 'undefined' || gameState !== 'PLAYING') return;
         this._broadcastGameState();
-      }, 100);
+      }, 50);
     }
   }
 
@@ -1140,7 +1269,7 @@ class MultiplayerManager {
         type:    MP_MSG.GAME_STATE,
         enemies: (typeof enemies !== 'undefined') ? enemies.map(e => ({
           id: e.id,
-          x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, type: e.type,
+          x: e.x, y: e.y, vx: e.vx, vy: e.vy, hp: e.hp, maxHp: e.maxHp, type: e.type,
           radius: e.radius, angle: e.angle, hasShot: e.hasShot
         })) : [],
         boss: (typeof boss !== 'undefined' && boss && boss.hp > 0) ? {
@@ -1148,7 +1277,7 @@ class MultiplayerManager {
           radius: boss.radius, angle: boss.angle
         } : null,
         bossBullets: (typeof bossBullets !== 'undefined') ? bossBullets.map(b => ({
-          x: b.x, y: b.y, vx: b.vx, vy: b.vy
+          x: b.x, y: b.y, vx: b.vx, vy: b.vy, radius: b.radius
         })) : [],
         score:                    (typeof score                    !== 'undefined') ? score : 0,
         bossBattleElapsedTime:    (typeof bossBattleElapsedTime    !== 'undefined') ? bossBattleElapsedTime : 0,
