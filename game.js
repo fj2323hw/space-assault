@@ -1480,16 +1480,20 @@ class HomingBullet {
     let target = null;
     let highestHp = -1;
 
+    const isClient = (typeof window !== 'undefined' && window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost);
+    const targetBoss = isClient ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+    const targetEnemies = isClient ? (window.multiplayerManager?.remoteGameObjects?.enemies || []) : enemies;
+
     // Check Boss first
-    if (boss && boss.hp > 0) {
-      target = boss;
-      highestHp = boss.hp;
+    if (targetBoss && targetBoss.hp > 0) {
+      target = targetBoss;
+      highestHp = targetBoss.hp;
     }
 
     // Check minion enemies
-    for (let i = 0; i < enemies.length; i++) {
-      const e = enemies[i];
-      if (e.hp > highestHp) {
+    for (let i = 0; i < targetEnemies.length; i++) {
+      const e = targetEnemies[i];
+      if (e && e.hp > highestHp) {
         highestHp = e.hp;
         target = e;
       }
@@ -1688,12 +1692,17 @@ class SummonMinion {
     let target = null;
     let minDist = 999999;
 
-    if (boss && boss.hp > 0) {
-      target = boss;
-      minDist = Math.hypot(boss.x - this.x, boss.y - this.y);
+    const isClient = (typeof window !== 'undefined' && window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost);
+    const targetBoss = isClient ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+    const targetEnemies = isClient ? (window.multiplayerManager?.remoteGameObjects?.enemies || []) : enemies;
+
+    if (targetBoss && targetBoss.hp > 0) {
+      target = targetBoss;
+      minDist = Math.hypot(targetBoss.x - this.x, targetBoss.y - this.y);
     }
 
-    for (const e of enemies) {
+    for (const e of targetEnemies) {
+      if (!e) continue;
       const d = Math.hypot(e.x - this.x, e.y - this.y);
       if (d < minDist) {
         minDist = d;
@@ -1828,8 +1837,10 @@ class SummonMinion {
 }
 
 // Enemy Class (Normal & Large Heavy)
+let nextEnemyId = 1;
 class Enemy {
   constructor(x, y, vx, vy, isPortrait, type = 'normal') {
+    this.id = nextEnemyId++;
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -2751,16 +2762,20 @@ function activateSkill() {
     let target = null;
     let highestHp = -1;
 
+    const isClient = (typeof window !== 'undefined' && window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost);
+    const targetBoss = isClient ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+    const targetEnemies = isClient ? (window.multiplayerManager?.remoteGameObjects?.enemies || []) : enemies;
+
     // Check Boss first
-    if (boss && boss.hp > 0) {
-      target = boss;
-      highestHp = boss.hp;
+    if (targetBoss && targetBoss.hp > 0) {
+      target = targetBoss;
+      highestHp = targetBoss.hp;
     }
 
     // Check minion enemies
-    for (let i = 0; i < enemies.length; i++) {
-      const e = enemies[i];
-      if (e.hp > highestHp) {
+    for (let i = 0; i < targetEnemies.length; i++) {
+      const e = targetEnemies[i];
+      if (e && e.hp > highestHp) {
         highestHp = e.hp;
         target = e;
       }
@@ -2873,19 +2888,34 @@ function activateSkill() {
     // Deal 100 Damage to target!
     floatingTexts.push(new FloatingText(target.x, target.y - 45, '⚔️ 一刀両断 100 DMG!', '#ff1744'));
 
-    if (target === boss) {
-      damageBoss(100);
+    if (isClient) {
+      if (target === targetBoss) {
+        window.multiplayerManager.reportBulletHit('boss', null, 100);
+      } else {
+        target.hp -= 100;
+        if (target.hp <= 0) {
+          const isHeavy = target.type === 'large';
+          const isShooter = target.type === 'shooter';
+          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ffd33d');
+          createExplosion(target.x, target.y, expColor, true);
+        }
+        window.multiplayerManager.reportBulletHit('enemy', target.id, 100);
+      }
     } else {
-      target.hp -= 100;
-      if (target.hp <= 0) {
-        const isHeavy = target.type === 'large';
-        const isShooter = target.type === 'shooter';
-        const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ffd33d');
-        createExplosion(target.x, target.y, expColor, true);
-        const idx = enemies.indexOf(target);
-        if (idx !== -1) enemies.splice(idx, 1);
-        addScore(isHeavy ? 1000 : (isShooter ? 600 : 500));
-        addWP(5);
+      if (target === boss) {
+        damageBoss(100);
+      } else {
+        target.hp -= 100;
+        if (target.hp <= 0) {
+          const isHeavy = target.type === 'large';
+          const isShooter = target.type === 'shooter';
+          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ffd33d');
+          createExplosion(target.x, target.y, expColor, true);
+          const idx = enemies.indexOf(target);
+          if (idx !== -1) enemies.splice(idx, 1);
+          addScore(isHeavy ? 1000 : (isShooter ? 600 : 500));
+          addWP(5);
+        }
       }
     }
 
@@ -3961,12 +3991,17 @@ function gameLoop(currentTime) {
       }
 
       // Check collision with Boss
-      if (boss && boss.hp > 0) {
-        const distToBoss = Math.hypot(b.x - boss.x, b.y - boss.y);
-        if (distToBoss < b.radius + boss.radius) {
+      const currentBoss = isClientMP ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+      if (currentBoss && currentBoss.hp > 0) {
+        const distToBoss = Math.hypot(b.x - currentBoss.x, b.y - currentBoss.y);
+        if (distToBoss < b.radius + currentBoss.radius) {
           bullets.splice(i, 1);
-          damageBoss(1);
-          addScore(20);
+          if (isClientMP) {
+            window.multiplayerManager.reportBulletHit('boss', null, 1);
+          } else {
+            damageBoss(1);
+            addScore(20);
+          }
 
           // Impact sparks
           for (let k = 0; k < 5; k++) {
@@ -3993,12 +4028,17 @@ function gameLoop(currentTime) {
       }
 
       // Collision with Boss
-      if (boss && boss.hp > 0) {
-        const distToBoss = Math.hypot(hb.x - boss.x, hb.y - boss.y);
-        if (distToBoss < hb.radius + boss.radius) {
+      const currentBoss = isClientMP ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+      if (currentBoss && currentBoss.hp > 0) {
+        const distToBoss = Math.hypot(hb.x - currentBoss.x, hb.y - currentBoss.y);
+        if (distToBoss < hb.radius + currentBoss.radius) {
           homingBullets.splice(i, 1);
-          damageBoss(hb.damage);
-          addScore(30);
+          if (isClientMP) {
+            window.multiplayerManager.reportBulletHit('boss', null, hb.damage);
+          } else {
+            damageBoss(hb.damage);
+            addScore(30);
+          }
 
           // Homing impact sparks & mini shockwave
           shockwaves.push(new Shockwave(hb.x, hb.y, 25, '#38bdf8', 3));
@@ -4018,203 +4058,356 @@ function gameLoop(currentTime) {
     }
 
     // 4. Enemies Update & Collision Checks
-    for (let i = enemies.length - 1; i >= 0; i--) {
-      const e = enemies[i];
-      e.update();
+    if (isClientMP && window.multiplayerManager) {
+      // Client in MP: test bullets vs remoteGameObjects.enemies and player vs remote enemies
+      const remoteEnemies = window.multiplayerManager.remoteGameObjects.enemies || [];
+      for (let i = remoteEnemies.length - 1; i >= 0; i--) {
+        const re = remoteEnemies[i];
+        if (!re || re.hp <= 0) continue;
 
-      // Check if enemy left the screen
-      const margin = Math.max(50, e.radius + 20);
-      if (e.isPortrait) {
-        if (e.y > canvas.height + margin) {
-          enemies.splice(i, 1);
-          continue;
+        let enemyDestroyed = false;
+        // Collision: Bullets vs Remote Enemy
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          const b = bullets[j];
+          if (Math.hypot(b.x - re.x, b.y - re.y) < b.radius + re.radius) {
+            bullets.splice(j, 1);
+            re.hp--;
+
+            // Hit spark
+            for (let k = 0; k < 4; k++) {
+              particles.push(new Particle(
+                b.x, b.y,
+                (Math.random() - 0.5) * 4,
+                (Math.random() - 0.5) * 4,
+                '#ffe066',
+                2, 10
+              ));
+            }
+
+            window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
+
+            if (re.hp <= 0) {
+              const isHeavy = re.type === 'large';
+              const isShooter = re.type === 'shooter';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+              createExplosion(re.x, re.y, expColor, isHeavy);
+              remoteEnemies.splice(i, 1);
+              enemyDestroyed = true;
+              break;
+            }
+          }
         }
-      } else {
-        if (e.x < -margin) {
-          enemies.splice(i, 1);
-          continue;
+
+        if (enemyDestroyed) continue;
+
+        // Collision: Homing Bullets vs Remote Enemy
+        for (let j = homingBullets.length - 1; j >= 0; j--) {
+          const hb = homingBullets[j];
+          if (Math.hypot(hb.x - re.x, hb.y - re.y) < hb.radius + re.radius) {
+            homingBullets.splice(j, 1);
+            re.hp -= hb.damage;
+
+            // Hit spark & shockwave
+            shockwaves.push(new Shockwave(hb.x, hb.y, 22, '#38bdf8', 3));
+            for (let k = 0; k < 6; k++) {
+              const spkAng = Math.random() * Math.PI * 2;
+              particles.push(new Particle(
+                hb.x, hb.y,
+                Math.cos(spkAng) * 4.5,
+                Math.sin(spkAng) * 4.5,
+                '#38bdf8',
+                2.5, 10
+              ));
+            }
+
+            window.multiplayerManager.reportBulletHit('enemy', re.id, hb.damage);
+
+            if (re.hp <= 0) {
+              const isHeavy = re.type === 'large';
+              const isShooter = re.type === 'shooter';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#38bdf8');
+              createExplosion(re.x, re.y, expColor, isHeavy);
+              remoteEnemies.splice(i, 1);
+              enemyDestroyed = true;
+              break;
+            }
+          }
         }
-      }
 
-      // Collision: Bullets vs Enemy
-      let enemyDestroyed = false;
-      for (let j = bullets.length - 1; j >= 0; j--) {
-        const b = bullets[j];
-        if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
-          bullets.splice(j, 1);
-          e.hp--;
+        if (enemyDestroyed) continue;
 
-          // Hit spark
-          for (let k = 0; k < 4; k++) {
+        // Graze check with remote enemy
+        const distToPlayer = Math.hypot(player.x - re.x, player.y - re.y);
+        if (!re.hasGrazed && distToPlayer < (player.grazeRadius + re.radius) && distToPlayer >= (player.radius + re.radius)) {
+          re.hasGrazed = true;
+          player.mp = Math.min(player.maxMp, player.mp + 10);
+          player.grazeEffectTimer = 16;
+          floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 MP', '#58a6ff'));
+          for (let k = 0; k < 6; k++) {
+            const sparkAngle = Math.random() * Math.PI * 2;
             particles.push(new Particle(
-              b.x, b.y,
-              (Math.random() - 0.5) * 4,
-              (Math.random() - 0.5) * 4,
-              '#ffe066',
-              2, 10
+              player.x + (re.x - player.x) * 0.5,
+              player.y + (re.y - player.y) * 0.5,
+              Math.cos(sparkAngle) * 3,
+              Math.sin(sparkAngle) * 3,
+              '#79c0ff',
+              2.5, 14
             ));
           }
+        }
 
-          if (e.hp <= 0) {
-            const isHeavy = e.type === 'large';
-            const isShooter = e.type === 'shooter';
+        // summonMinions vs Remote Enemy
+        for (let m = summonMinions.length - 1; m >= 0; m--) {
+          const minion = summonMinions[m];
+          if (Math.hypot(minion.x - re.x, minion.y - re.y) < minion.radius + re.radius) {
+            minion.takeDamage(20);
+            re.hp -= 2;
+            window.multiplayerManager.reportBulletHit('enemy', re.id, 2);
+            if (minion.hp <= 0) {
+              createExplosion(minion.x, minion.y, '#c084fc', true);
+              floatingTexts.push(new FloatingText(minion.x, minion.y - 25, '🤖 味方大破！', '#f85149'));
+              summonMinions.splice(m, 1);
+            }
+            if (re.hp <= 0) {
+              const isHeavy = re.type === 'large';
+              const isShooter = re.type === 'shooter';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#c084fc');
+              createExplosion(re.x, re.y, expColor, isHeavy);
+              remoteEnemies.splice(i, 1);
+              enemyDestroyed = true;
+              break;
+            }
+          }
+        }
+
+        if (enemyDestroyed) continue;
+
+        // Player vs Remote Enemy Body Collision
+        if (distToPlayer < player.radius + re.radius) {
+          const isHeavy = re.type === 'large';
+          const isShooter = re.type === 'shooter';
+          if (player.isDashing) {
+            const expColor = isShooter ? '#a855f7' : '#38bdf8';
+            createExplosion(re.x, re.y, expColor, isHeavy);
+            window.multiplayerManager.reportBulletHit('enemy', re.id, 5);
+            remoteEnemies.splice(i, 1);
+          } else if (player.isGuarding) {
+            re.hp -= 1;
+            window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
+            if (re.hp <= 0) {
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#34d399');
+              createExplosion(re.x, re.y, expColor, isHeavy);
+              remoteEnemies.splice(i, 1);
+            }
+          } else {
+            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+            createExplosion(re.x, re.y, expColor, isHeavy);
+            remoteEnemies.splice(i, 1);
+            takeDamage();
+          }
+        }
+      }
+    } else {
+      // Local / Host Enemy update and collisions
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        e.update();
+
+        // Check if enemy left the screen
+        const margin = Math.max(50, e.radius + 20);
+        if (e.isPortrait) {
+          if (e.y > canvas.height + margin) {
+            enemies.splice(i, 1);
+            continue;
+          }
+        } else {
+          if (e.x < -margin) {
+            enemies.splice(i, 1);
+            continue;
+          }
+        }
+
+        // Collision: Bullets vs Enemy
+        let enemyDestroyed = false;
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          const b = bullets[j];
+          if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
+            bullets.splice(j, 1);
+            e.hp--;
+
+            // Hit spark
+            for (let k = 0; k < 4; k++) {
+              particles.push(new Particle(
+                b.x, b.y,
+                (Math.random() - 0.5) * 4,
+                (Math.random() - 0.5) * 4,
+                '#ffe066',
+                2, 10
+              ));
+            }
+
+            if (e.hp <= 0) {
+              const isHeavy = e.type === 'large';
+              const isShooter = e.type === 'shooter';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+              createExplosion(e.x, e.y, expColor, isHeavy);
+              enemies.splice(i, 1);
+              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addWP(isHeavy ? 3 : 1);
+              enemyDestroyed = true;
+              break;
+            }
+          }
+        }
+
+        if (enemyDestroyed) continue;
+
+        // Collision: Homing Bullets vs Enemy
+        for (let j = homingBullets.length - 1; j >= 0; j--) {
+          const hb = homingBullets[j];
+          if (Math.hypot(hb.x - e.x, hb.y - e.y) < hb.radius + e.radius) {
+            homingBullets.splice(j, 1);
+            e.hp -= hb.damage;
+
+            // Hit spark & shockwave
+            shockwaves.push(new Shockwave(hb.x, hb.y, 22, '#38bdf8', 3));
+            for (let k = 0; k < 6; k++) {
+              const spkAng = Math.random() * Math.PI * 2;
+              particles.push(new Particle(
+                hb.x, hb.y,
+                Math.cos(spkAng) * 4.5,
+                Math.sin(spkAng) * 4.5,
+                '#38bdf8',
+                2.5, 10
+              ));
+            }
+
+            if (e.hp <= 0) {
+              const isHeavy = e.type === 'large';
+              const isShooter = e.type === 'shooter';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#38bdf8');
+              createExplosion(e.x, e.y, expColor, isHeavy);
+              enemies.splice(i, 1);
+              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addWP(isHeavy ? 3 : 1);
+              enemyDestroyed = true;
+              break;
+            }
+          }
+        }
+
+        if (enemyDestroyed) continue;
+
+        // Collision: Player vs Enemy & Graze Check
+        const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
+
+        // Graze Detection (inside enlarged graze radius, but not body collision)
+        if (!e.hasGrazed && distToPlayer < (player.grazeRadius + e.radius) && distToPlayer >= (player.radius + e.radius)) {
+          e.hasGrazed = true;
+          player.mp = Math.min(player.maxMp, player.mp + 10);
+          player.grazeEffectTimer = 16;
+          addScore(30);
+          floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 MP', '#58a6ff'));
+
+          // Graze Sparks
+          for (let k = 0; k < 6; k++) {
+            const sparkAngle = Math.random() * Math.PI * 2;
+            particles.push(new Particle(
+              player.x + (e.x - player.x) * 0.5,
+              player.y + (e.y - player.y) * 0.5,
+              Math.cos(sparkAngle) * 3,
+              Math.sin(sparkAngle) * 3,
+              '#79c0ff',
+              2.5,
+              14
+            ));
+          }
+        }
+
+        // Collision: summonMinions vs Enemy (Ally takes 20 dmg, enemy takes dmg/knockback)
+        for (let m = summonMinions.length - 1; m >= 0; m--) {
+          const minion = summonMinions[m];
+          if (Math.hypot(minion.x - e.x, minion.y - e.y) < minion.radius + e.radius) {
+            minion.takeDamage(20);
+            e.hp -= 2;
+            const pushAngle = Math.atan2(e.y - minion.y, e.x - minion.x);
+            e.x += Math.cos(pushAngle) * 12;
+            e.y += Math.sin(pushAngle) * 12;
+
+            if (minion.hp <= 0) {
+              createExplosion(minion.x, minion.y, '#c084fc', true);
+              floatingTexts.push(new FloatingText(minion.x, minion.y - 25, '🤖 味方大破！', '#f85149'));
+              summonMinions.splice(m, 1);
+            }
+
+            if (e.hp <= 0) {
+              const isHeavy = e.type === 'large';
+              const isShooter = e.type === 'shooter';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#c084fc');
+              createExplosion(e.x, e.y, expColor, isHeavy);
+              enemies.splice(i, 1);
+              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addWP(isHeavy ? 3 : 1);
+              enemyDestroyed = true;
+              break;
+            }
+          }
+        }
+
+        if (enemyDestroyed) continue;
+
+        // Body Collision: Player vs Enemy
+        if (distToPlayer < player.radius + e.radius) {
+          const isHeavy = e.type === 'large';
+          const isShooter = e.type === 'shooter';
+          if (player.isDashing) {
+            // Dash destroys enemy!
+            const expColor = isShooter ? '#a855f7' : '#38bdf8';
+            createExplosion(e.x, e.y, expColor, isHeavy);
+            enemies.splice(i, 1);
+            addScore(isHeavy ? 350 : (isShooter ? 200 : 150));
+            addWP(isHeavy ? 3 : 1);
+          } else if (player.isGuarding) {
+            // Barrier knocks back / damages enemy and blocks all damage to player!
+            e.hp -= 1;
+            const pushAngle = Math.atan2(e.y - player.y, e.x - player.x);
+            e.x += Math.cos(pushAngle) * 8;
+            e.y += Math.sin(pushAngle) * 8;
+            for (let k = 0; k < 5; k++) {
+              particles.push(new Particle(
+                (player.x + e.x) / 2, (player.y + e.y) / 2,
+                Math.cos(pushAngle) * 3 + (Math.random() - 0.5) * 2,
+                Math.sin(pushAngle) * 3 + (Math.random() - 0.5) * 2,
+                '#34d399', 2.5, 10
+              ));
+            }
+            if (e.hp <= 0) {
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#34d399');
+              createExplosion(e.x, e.y, expColor, isHeavy);
+              enemies.splice(i, 1);
+              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addWP(isHeavy ? 3 : 1);
+            }
+          } else {
+            // Take Damage (20 HP loss)
             const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
             createExplosion(e.x, e.y, expColor, isHeavy);
             enemies.splice(i, 1);
-            addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
             addWP(isHeavy ? 3 : 1);
-            enemyDestroyed = true;
-            break;
+            takeDamage();
           }
-        }
-      }
-
-      if (enemyDestroyed) continue;
-
-      // Collision: Homing Bullets vs Enemy
-      for (let j = homingBullets.length - 1; j >= 0; j--) {
-        const hb = homingBullets[j];
-        if (Math.hypot(hb.x - e.x, hb.y - e.y) < hb.radius + e.radius) {
-          homingBullets.splice(j, 1);
-          e.hp -= hb.damage;
-
-          // Hit spark & shockwave
-          shockwaves.push(new Shockwave(hb.x, hb.y, 22, '#38bdf8', 3));
-          for (let k = 0; k < 6; k++) {
-            const spkAng = Math.random() * Math.PI * 2;
-            particles.push(new Particle(
-              hb.x, hb.y,
-              Math.cos(spkAng) * 4.5,
-              Math.sin(spkAng) * 4.5,
-              '#38bdf8',
-              2.5, 10
-            ));
-          }
-
-          if (e.hp <= 0) {
-            const isHeavy = e.type === 'large';
-            const isShooter = e.type === 'shooter';
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#38bdf8');
-            createExplosion(e.x, e.y, expColor, isHeavy);
-            enemies.splice(i, 1);
-            addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
-            addWP(isHeavy ? 3 : 1);
-            enemyDestroyed = true;
-            break;
-          }
-        }
-      }
-
-      if (enemyDestroyed) continue;
-
-      // Collision: Player vs Enemy & Graze Check
-      const distToPlayer = Math.hypot(player.x - e.x, player.y - e.y);
-
-      // Graze Detection (inside enlarged graze radius, but not body collision)
-      if (!e.hasGrazed && distToPlayer < (player.grazeRadius + e.radius) && distToPlayer >= (player.radius + e.radius)) {
-        e.hasGrazed = true;
-        player.mp = Math.min(player.maxMp, player.mp + 10);
-        player.grazeEffectTimer = 16;
-        addScore(30);
-        floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 MP', '#58a6ff'));
-
-        // Graze Sparks
-        for (let k = 0; k < 6; k++) {
-          const sparkAngle = Math.random() * Math.PI * 2;
-          particles.push(new Particle(
-            player.x + (e.x - player.x) * 0.5,
-            player.y + (e.y - player.y) * 0.5,
-            Math.cos(sparkAngle) * 3,
-            Math.sin(sparkAngle) * 3,
-            '#79c0ff',
-            2.5,
-            14
-          ));
-        }
-      }
-
-      // Collision: summonMinions vs Enemy (Ally takes 20 dmg, enemy takes dmg/knockback)
-      for (let m = summonMinions.length - 1; m >= 0; m--) {
-        const minion = summonMinions[m];
-        if (Math.hypot(minion.x - e.x, minion.y - e.y) < minion.radius + e.radius) {
-          minion.takeDamage(20);
-          e.hp -= 2;
-          const pushAngle = Math.atan2(e.y - minion.y, e.x - minion.x);
-          e.x += Math.cos(pushAngle) * 12;
-          e.y += Math.sin(pushAngle) * 12;
-
-          if (minion.hp <= 0) {
-            createExplosion(minion.x, minion.y, '#c084fc', true);
-            floatingTexts.push(new FloatingText(minion.x, minion.y - 25, '🤖 味方大破！', '#f85149'));
-            summonMinions.splice(m, 1);
-          }
-
-          if (e.hp <= 0) {
-            const isHeavy = e.type === 'large';
-            const isShooter = e.type === 'shooter';
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#c084fc');
-            createExplosion(e.x, e.y, expColor, isHeavy);
-            enemies.splice(i, 1);
-            addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
-            addWP(isHeavy ? 3 : 1);
-            enemyDestroyed = true;
-            break;
-          }
-        }
-      }
-
-      if (enemyDestroyed) continue;
-
-      // Body Collision: Player vs Enemy
-      if (distToPlayer < player.radius + e.radius) {
-        const isHeavy = e.type === 'large';
-        const isShooter = e.type === 'shooter';
-        if (player.isDashing) {
-          // Dash destroys enemy!
-          const expColor = isShooter ? '#a855f7' : '#38bdf8';
-          createExplosion(e.x, e.y, expColor, isHeavy);
-          enemies.splice(i, 1);
-          addScore(isHeavy ? 350 : (isShooter ? 200 : 150));
-          addWP(isHeavy ? 3 : 1);
-        } else if (player.isGuarding) {
-          // Barrier knocks back / damages enemy and blocks all damage to player!
-          e.hp -= 1;
-          const pushAngle = Math.atan2(e.y - player.y, e.x - player.x);
-          e.x += Math.cos(pushAngle) * 8;
-          e.y += Math.sin(pushAngle) * 8;
-          for (let k = 0; k < 5; k++) {
-            particles.push(new Particle(
-              (player.x + e.x) / 2, (player.y + e.y) / 2,
-              Math.cos(pushAngle) * 3 + (Math.random() - 0.5) * 2,
-              Math.sin(pushAngle) * 3 + (Math.random() - 0.5) * 2,
-              '#34d399', 2.5, 10
-            ));
-          }
-          if (e.hp <= 0) {
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#34d399');
-            createExplosion(e.x, e.y, expColor, isHeavy);
-            enemies.splice(i, 1);
-            addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
-            addWP(isHeavy ? 3 : 1);
-          }
-        } else {
-          // Take Damage (20 HP loss)
-          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
-          createExplosion(e.x, e.y, expColor, isHeavy);
-          enemies.splice(i, 1);
-          addWP(isHeavy ? 3 : 1);
-          takeDamage();
         }
       }
     }
 
     // Body Collision: Player vs Boss
-    if (boss && boss.hp > 0) {
-      const distToBoss = Math.hypot(player.x - boss.x, player.y - boss.y);
+    const activeBoss = isClientMP ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+    if (activeBoss && activeBoss.hp > 0) {
+      const distToBoss = Math.hypot(player.x - activeBoss.x, player.y - activeBoss.y);
       // Graze Boss
-      if (!boss.hasGrazed && distToBoss < (player.grazeRadius + boss.radius) && distToBoss >= (player.radius + boss.radius)) {
-        boss.hasGrazed = true;
-        setTimeout(() => { if (boss) boss.hasGrazed = false; }, 800);
+      if (!activeBoss.hasGrazed && distToBoss < (player.grazeRadius + activeBoss.radius) && distToBoss >= (player.radius + activeBoss.radius)) {
+        activeBoss.hasGrazed = true;
+        setTimeout(() => { if (activeBoss) activeBoss.hasGrazed = false; }, 800);
         player.mp = Math.min(player.maxMp, player.mp + 15);
         player.grazeEffectTimer = 16;
         addScore(100);
@@ -4222,10 +4415,14 @@ function gameLoop(currentTime) {
       }
 
       // Touch Boss body
-      if (distToBoss < player.radius + boss.radius) {
+      if (distToBoss < player.radius + activeBoss.radius) {
         if (player.isDashing) {
-          damageBoss(2);
-          floatingTexts.push(new FloatingText(boss.x, boss.y - 45, '-2 HP', '#38bdf8'));
+          if (isClientMP) {
+            window.multiplayerManager.reportBulletHit('boss', null, 2);
+          } else {
+            damageBoss(2);
+          }
+          floatingTexts.push(new FloatingText(activeBoss.x, activeBoss.y - 45, '-2 HP', '#38bdf8'));
         } else if (player.isGuarding) {
           // Barrier blocks boss contact damage!
           if (Math.random() < 0.25) {

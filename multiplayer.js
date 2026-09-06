@@ -252,6 +252,7 @@ class RemotePlayer {
 class RemoteEnemy {
   constructor(data) {
     Object.assign(this, data);
+    this.id = data.id;
     this.angle = data.angle || 0;
   }
 
@@ -882,7 +883,17 @@ class MultiplayerManager {
         if (typeof damageBoss === 'function') damageBoss(data.amount || 1);
         if (typeof addScore   === 'function') addScore(20);
       } else if (data.targetType === 'enemy') {
-        const e = enemies[data.enemyIndex];
+        if (typeof enemies === 'undefined') return;
+        let e = null;
+        let enemyIdx = -1;
+        if (data.enemyId != null) {
+          enemyIdx = enemies.findIndex(item => item.id === data.enemyId);
+          if (enemyIdx !== -1) e = enemies[enemyIdx];
+        }
+        if (!e && data.enemyIndex != null && enemies[data.enemyIndex]) {
+          enemyIdx = data.enemyIndex;
+          e = enemies[enemyIdx];
+        }
         if (e && e.hp > 0) {
           e.hp -= (data.amount || 1);
           if (e.hp <= 0) {
@@ -892,7 +903,9 @@ class MultiplayerManager {
             }
             if (typeof addScore === 'function') addScore(e.type === 'large' ? 300 : e.type === 'shooter' ? 150 : 100);
             if (typeof addWP    === 'function') addWP(e.type === 'large' ? 3 : 1);
-            enemies.splice(data.enemyIndex, 1);
+            if (enemyIdx !== -1) {
+              enemies.splice(enemyIdx, 1);
+            }
           }
         }
       }
@@ -1063,8 +1076,14 @@ class MultiplayerManager {
   }
 
   // ── Report bullet hit to host ─────────────────────────
-  reportBulletHit(targetType, enemyIndex, amount) {
-    const msg = { type: MP_MSG.BULLET_HIT, targetType, enemyIndex, amount };
+  reportBulletHit(targetType, targetId, amount) {
+    const msg = {
+      type: MP_MSG.BULLET_HIT,
+      targetType,
+      enemyId: targetType === 'enemy' ? targetId : null,
+      enemyIndex: (typeof targetId === 'number' && targetId < 1000) ? targetId : null,
+      amount
+    };
     if (this.isHost) {
       this._processBulletHit('__self_host__', msg);
     } else {
@@ -1120,6 +1139,7 @@ class MultiplayerManager {
       const gs = {
         type:    MP_MSG.GAME_STATE,
         enemies: (typeof enemies !== 'undefined') ? enemies.map(e => ({
+          id: e.id,
           x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp, type: e.type,
           radius: e.radius, angle: e.angle, hasShot: e.hasShot
         })) : [],
