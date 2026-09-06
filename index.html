@@ -2006,7 +2006,7 @@
         </div>
 
         <div class="modal-footer">
-          <span class="lb-footer-tip">※ 同一ネットワークの全端末とリアルタイム共有中</span>
+          <span class="lb-footer-tip">※ 全国のプレイヤーとクラウドでリアルタイム共有中</span>
           <button class="modal-btn secondary" id="closeLeaderboardBottomBtn">閉じる</button>
         </div>
       </div>
@@ -2032,6 +2032,26 @@
       </div>
     </div>
   </div>
+
+  <!-- Firebase App & Firestore SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyDG51VQ53Sj--7qLRE74OZH5SjSKBKDSGA",
+      authDomain: "space-assault-game.firebaseapp.com",
+      projectId: "space-assault-game",
+      storageBucket: "space-assault-game.firebasestorage.app",
+      messagingSenderId: "24797759155",
+      appId: "1:24797759155:web:af50f7f061e9b86d4012c6"
+    };
+    try {
+      firebase.initializeApp(firebaseConfig);
+      window.firestoreDb = firebase.firestore();
+    } catch (e) {
+      console.warn("Firebase initialization warning:", e);
+    }
+  </script>
 
   <script src="game.js"></script>
 </body>

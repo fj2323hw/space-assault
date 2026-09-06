@@ -656,7 +656,7 @@ addMenuBtnListeners(bossLvlPlusBtn, bossLvlPlus);
 
 
 // ==========================================
-// ONLINE LEADERBOARD SYSTEM
+// ONLINE LEADERBOARD SYSTEM (Firestore & Local Fallback)
 // ==========================================
 
 async function fetchOnlineLeaderboard() {
@@ -665,6 +665,55 @@ async function fetchOnlineLeaderboard() {
     if (lbEmptyText) lbEmptyText.style.display = 'none';
     if (lbTableBody) lbTableBody.innerHTML = '';
 
+    if (window.firestoreDb) {
+      // Query Firestore collection 'leaderboard'
+      const snapshot = await window.firestoreDb.collection('leaderboard').get();
+      const records = [];
+      snapshot.forEach((doc) => {
+        records.push(doc.data());
+      });
+
+      // Organize into standard structure: { pc: { scoreAttack: [], boss: {} }, mobile: { scoreAttack: [], boss: {} } }
+      const formatted = {
+        pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } },
+        mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } }
+      };
+
+      records.forEach((rec) => {
+        const dev = (rec.device === 'mobile') ? 'mobile' : 'pc';
+        if (rec.mode === 'SCORE_ATTACK') {
+          formatted[dev].scoreAttack.push(rec);
+        } else if (rec.mode === 'BOSS') {
+          const lvl = String(rec.level || 1);
+          if (!formatted[dev].boss[lvl]) formatted[dev].boss[lvl] = [];
+          formatted[dev].boss[lvl].push(rec);
+        }
+      });
+
+      // Sort Score Attack desc (high to low)
+      formatted.pc.scoreAttack.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+      formatted.mobile.scoreAttack.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+
+      // Sort Boss time asc (fastest to slowest)
+      for (let l = 1; l <= 5; l++) {
+        const lvl = String(l);
+        if (formatted.pc.boss[lvl]) {
+          formatted.pc.boss[lvl].sort((a, b) => (Number(a.time) || 999999) - (Number(b.time) || 999999));
+        }
+        if (formatted.mobile.boss[lvl]) {
+          formatted.mobile.boss[lvl].sort((a, b) => (Number(a.time) || 999999) - (Number(b.time) || 999999));
+        }
+      }
+
+      cachedLeaderboardData = formatted;
+      try {
+        localStorage.setItem('sa_leaderboard_cache', JSON.stringify(formatted));
+      } catch (e) {}
+      renderLeaderboardView();
+      return;
+    }
+
+    // Secondary fallback: local HTTP server API if running locally without Firestore
     const res = await fetch('/api/leaderboard', { cache: 'no-store' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -678,10 +727,16 @@ async function fetchOnlineLeaderboard() {
       if (local) {
         cachedLeaderboardData = JSON.parse(local);
       } else {
-        cachedLeaderboardData = { scoreAttack: [], boss: { "1": [] } };
+        cachedLeaderboardData = {
+          pc: { scoreAttack: [], boss: { '1': [] } },
+          mobile: { scoreAttack: [], boss: { '1': [] } }
+        };
       }
     } catch (e) {
-      cachedLeaderboardData = { scoreAttack: [], boss: { "1": [] } };
+      cachedLeaderboardData = {
+        pc: { scoreAttack: [], boss: { '1': [] } },
+        mobile: { scoreAttack: [], boss: { '1': [] } }
+      };
     }
     renderLeaderboardView();
   } finally {
@@ -894,27 +949,41 @@ async function submitRecord() {
   } catch (e) {}
 
   const isMobilePlayer = checkIsMobile();
+  const dateStr = new Date().toISOString().split('T')[0];
   const payload = {
     name: playerName,
     mode: pendingRecordToRegister.mode,
     score: pendingRecordToRegister.mode === 'SCORE_ATTACK' ? Math.round(pendingRecordToRegister.value) : 0,
     time: pendingRecordToRegister.mode === 'BOSS' ? pendingRecordToRegister.value : 0,
-    level: pendingRecordToRegister.level,
-    device: isMobilePlayer ? 'mobile' : 'pc'
+    level: pendingRecordToRegister.level || 1,
+    device: isMobilePlayer ? 'mobile' : 'pc',
+    date: dateStr,
+    timestamp: Date.now()
   };
 
   if (recordModal) recordModal.style.display = 'none';
-  showToast('📡 記録を送信中...');
+  showToast('📡 クラウドに記録を送信中...');
 
   try {
-    // POST only (GET query-string submission was unreliable on mobile:
-    // long URLs caused StreamReader.ReadLine() to truncate the request line,
-    // so the server treated it as a plain GET and never wrote to leaderboard.json)
+    if (window.firestoreDb) {
+      // Save directly to Firebase Firestore
+      await window.firestoreDb.collection('leaderboard').add(payload);
+      showToast('✅ リーダーボードに登録完了！');
+
+      // Fetch fresh data and show leaderboard
+      setTimeout(async () => {
+        await fetchOnlineLeaderboard();
+        openLeaderboardModal(payload.mode, payload.level || 1);
+      }, 400);
+      return;
+    }
+
+    // Fallback: Local HTTP server POST
     const res = await fetch('/api/leaderboard', {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
       body: JSON.stringify(payload),
-      keepalive: true  // prevents request being aborted on mobile page transitions
+      keepalive: true
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const updatedData = await res.json();
@@ -925,13 +994,12 @@ async function submitRecord() {
     } catch (e) {}
     showToast('✅ リーダーボードに登録完了！');
 
-    // Open leaderboard to show the updated rank
     setTimeout(() => {
       openLeaderboardModal(payload.mode, payload.level || 1);
     }, 400);
   } catch (err) {
     console.warn('Failed to submit online record:', err);
-    showToast(`⚠️ 送信失敗 (${err.message || 'オフライン'}) ローカルに保存`);
+    showToast(`⚠️ 送信失敗 (${err.message || 'オフライン'})`);
   } finally {
     pendingRecordToRegister = null;
   }
