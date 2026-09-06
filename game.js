@@ -3637,6 +3637,7 @@ function drawCrosshair(ctx) {
 let lastFrameTime = performance.now();
 
 function gameLoop(currentTime) {
+  const isClientMP = window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost;
   const dt = Math.min((currentTime - lastFrameTime) / 1000, 0.1);
   lastFrameTime = currentTime;
 
@@ -3814,7 +3815,6 @@ function gameLoop(currentTime) {
     // 2. Enemy Spawning Logic
     // In Score Attack mode, spawn continuously BUT stop spawning while Boss or Warning is active!
     // In Multiplayer, only the Host spawns enemies.
-    const isClientMP = window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost;
     if (!isClientMP && gameMode === 'SCORE_ATTACK' && !isBossActive) {
       const spawnRate = Math.max(650, 1500 - score * 0.6);
       if (currentTime - lastEnemySpawnTime > spawnRate) {
