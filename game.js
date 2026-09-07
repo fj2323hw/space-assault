@@ -2900,6 +2900,10 @@ function activateSkill() {
           const isShooter = target.type === 'shooter';
           const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ffd33d');
           createExplosion(target.x, target.y, expColor, true);
+          const remIdx = targetEnemies.indexOf(target);
+          if (remIdx !== -1) targetEnemies.splice(remIdx, 1);
+          addScore(isHeavy ? 1000 : (isShooter ? 600 : 500));
+          addWP(5);
         }
         window.multiplayerManager.reportBulletHit('enemy', target.id, 100);
       }
@@ -3002,15 +3006,33 @@ function activateSkill() {
   }
 
   // Destroy nearby enemies with shockwave!
-  for (let i = enemies.length - 1; i >= 0; i--) {
-    const e = enemies[i];
-    const dStart = Math.hypot(e.x - startX, e.y - startY);
-    const dEnd = Math.hypot(e.x - player.x, e.y - player.y);
-    if (dStart < 110 || dEnd < 130) {
-      createExplosion(e.x, e.y, '#38bdf8');
-      enemies.splice(i, 1);
-      addScore(150);
-      addWP(1);
+  const isClientBlink = (typeof window !== 'undefined' && window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost);
+  if (isClientBlink) {
+    const remoteEnemies = window.multiplayerManager.remoteGameObjects?.enemies || [];
+    for (let i = remoteEnemies.length - 1; i >= 0; i--) {
+      const e = remoteEnemies[i];
+      if (!e || e.hp <= 0) continue;
+      const dStart = Math.hypot(e.x - startX, e.y - startY);
+      const dEnd = Math.hypot(e.x - player.x, e.y - player.y);
+      if (dStart < 110 || dEnd < 130) {
+        createExplosion(e.x, e.y, '#38bdf8');
+        window.multiplayerManager.reportBulletHit('enemy', e.id, 5);
+        remoteEnemies.splice(i, 1);
+        addScore(150);
+        addWP(1);
+      }
+    }
+  } else {
+    for (let i = enemies.length - 1; i >= 0; i--) {
+      const e = enemies[i];
+      const dStart = Math.hypot(e.x - startX, e.y - startY);
+      const dEnd = Math.hypot(e.x - player.x, e.y - player.y);
+      if (dStart < 110 || dEnd < 130) {
+        createExplosion(e.x, e.y, '#38bdf8');
+        enemies.splice(i, 1);
+        addScore(150);
+        addWP(1);
+      }
     }
   }
 
@@ -4113,6 +4135,7 @@ function gameLoop(currentTime) {
               const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
+              addWP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4149,6 +4172,7 @@ function gameLoop(currentTime) {
               const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#38bdf8');
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
+              addWP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4195,6 +4219,7 @@ function gameLoop(currentTime) {
               const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#c084fc');
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
+              addWP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4212,6 +4237,7 @@ function gameLoop(currentTime) {
             createExplosion(re.x, re.y, expColor, isHeavy);
             window.multiplayerManager.reportBulletHit('enemy', re.id, 5);
             remoteEnemies.splice(i, 1);
+            addWP(isHeavy ? 3 : 1);
           } else if (player.isGuarding) {
             re.hp -= 1;
             window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
@@ -4219,11 +4245,13 @@ function gameLoop(currentTime) {
               const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#34d399');
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
+              addWP(isHeavy ? 3 : 1);
             }
           } else {
             const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
             createExplosion(re.x, re.y, expColor, isHeavy);
             remoteEnemies.splice(i, 1);
+            addWP(isHeavy ? 3 : 1);
             takeDamage();
           }
         }

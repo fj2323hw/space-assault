@@ -1065,7 +1065,7 @@ class MultiplayerManager {
               createExplosion(e.x, e.y, col, e.type === 'large');
             }
             if (typeof addScore === 'function') addScore(e.type === 'large' ? 300 : e.type === 'shooter' ? 150 : 100);
-            if (typeof addWP    === 'function') addWP(e.type === 'large' ? 3 : 1);
+            if (typeof addWP    === 'function' && fromPeerId === '__self_host__') addWP(e.type === 'large' ? 3 : 1);
             if (enemyIdx !== -1) {
               enemies.splice(enemyIdx, 1);
             }
