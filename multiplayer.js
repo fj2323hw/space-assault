@@ -848,6 +848,18 @@ class MultiplayerManager {
         if (this.remotePlayers[data.targetPeerId]) {
           this.remotePlayers[data.targetPeerId].revivalProgress = data.progress;
         }
+        if (!this.isHost && (data.targetPeerId === '__host__' || data.targetPeerId === this.hostPeerId)) {
+          const hostRp = this.remotePlayers[this.hostPeerId] || this.remotePlayers['__host__'];
+          if (hostRp) hostRp.revivalProgress = data.progress;
+        }
+        // Also update local player's revivalProgress if local player is being revived
+        if (typeof player !== 'undefined') {
+          const isMe = (this.isHost && (data.targetPeerId === '__host__' || data.targetPeerId === this.peer?.id)) ||
+                       (!this.isHost && this.peer && data.targetPeerId === this.peer.id);
+          if (isMe) {
+            player.revivalProgress = data.progress;
+          }
+        }
         break;
 
       // ── PLAYER_DOWN ──
@@ -855,6 +867,13 @@ class MultiplayerManager {
         if (this.remotePlayers[data.peerId]) {
           this.remotePlayers[data.peerId].isDown = true;
           this.remotePlayers[data.peerId].hp     = 0;
+        }
+        if (!this.isHost && (data.peerId === '__host__' || data.peerId === this.hostPeerId)) {
+          const hostRp = this.remotePlayers[this.hostPeerId] || this.remotePlayers['__host__'];
+          if (hostRp) {
+            hostRp.isDown = true;
+            hostRp.hp     = 0;
+          }
         }
         break;
 
@@ -867,8 +886,20 @@ class MultiplayerManager {
           rp.hp              = data.newMaxHp;
           rp.revivalProgress = 0;
         }
+        // If host was revived, also update remotePlayers[this.hostPeerId] for client
+        if (!this.isHost && (data.peerId === '__host__' || data.peerId === this.hostPeerId)) {
+          const hostRp = this.remotePlayers[this.hostPeerId] || this.remotePlayers['__host__'];
+          if (hostRp) {
+            hostRp.isDown          = false;
+            hostRp.maxHp           = data.newMaxHp;
+            hostRp.hp              = data.newMaxHp;
+            hostRp.revivalProgress = 0;
+          }
+        }
         // If it's us
-        if (!this.isHost && this.peer && data.peerId === this.peer.id) {
+        const isMe = (!this.isHost && this.peer && data.peerId === this.peer.id) ||
+                     (this.isHost && (data.peerId === '__host__' || data.peerId === this.peer?.id));
+        if (isMe) {
           this._selfRevived(data.newMaxHp);
         }
         break;
@@ -1048,14 +1079,17 @@ class MultiplayerManager {
 
   // ── HOST: Process revival progress ────────────────────
   _processReviveProgress(fromPeerId, data) {
-    const key = `${fromPeerId}_${data.targetPeerId}`;
+    // Normalize targetPeerId if targeting host
+    const isTargetHost = (data.targetPeerId === '__host__' || data.targetPeerId === this.peer?.id || data.targetPeerId === this.hostPeerId);
+    const normalizedTarget = isTargetHost ? '__host__' : data.targetPeerId;
+    const key = `${fromPeerId}_${normalizedTarget}`;
 
     // Confirm target is still down
     let stillDown = false;
-    if (data.targetPeerId === '__host__') {
+    if (isTargetHost) {
       stillDown = (typeof player !== 'undefined') && (player.isDown || player.hp <= 0);
-    } else if (this.remotePlayers[data.targetPeerId]) {
-      stillDown = this.remotePlayers[data.targetPeerId].isDown;
+    } else if (this.remotePlayers[normalizedTarget]) {
+      stillDown = this.remotePlayers[normalizedTarget].isDown;
     }
 
     if (!stillDown) { delete this.revivalTimers[key]; return; }
@@ -1063,30 +1097,33 @@ class MultiplayerManager {
     this.revivalTimers[key] = (this.revivalTimers[key] || 0) + data.dt;
     const progress = Math.min(1, this.revivalTimers[key] / 3.0);
 
+    // Broadcast using both normalized ID and host's actual peerId so all clients match
     this._broadcast({
       type:         MP_MSG.REVIVE_PROGRESS_BCAST,
       reviverPeerId: fromPeerId,
-      targetPeerId:  data.targetPeerId,
+      targetPeerId:  normalizedTarget,
       progress
     });
 
     if (this.revivalTimers[key] >= 3.0) {
       delete this.revivalTimers[key];
-      this._executeRevive(data.targetPeerId);
+      this._executeRevive(normalizedTarget);
     }
   }
 
   // ── HOST: Execute revival ─────────────────────────────
   _executeRevive(targetPeerId) {
     let newMaxHp = 1;
+    const isTargetHost = (targetPeerId === '__host__' || targetPeerId === this.peer?.id || targetPeerId === this.hostPeerId);
 
-    if (targetPeerId === '__host__') {
+    if (isTargetHost) {
       if (typeof player === 'undefined') return;
-      player.maxHp         = Math.max(1, player.maxHp - 20);
-      player.hp            = player.maxHp;
-      player.isDown        = false;
+      player.maxHp           = Math.max(1, player.maxHp - 20);
+      player.hp              = player.maxHp;
+      player.isDown          = false;
+      player.revivalProgress = 0;
       player.invincibleTimer = 120;
-      newMaxHp             = player.maxHp;
+      newMaxHp               = player.maxHp;
       if (typeof showToast    === 'function') showToast(`✨ 復活！ (最大HP: ${player.maxHp})`);
       if (typeof floatingTexts !== 'undefined' && typeof FloatingText !== 'undefined') {
         floatingTexts.push(new FloatingText(player.x, player.y - 40, '✨ 復活！', '#7ee787'));
@@ -1106,7 +1143,11 @@ class MultiplayerManager {
       }
     }
 
-    this._broadcast({ type: MP_MSG.PLAYER_REVIVED, peerId: targetPeerId, newMaxHp });
+    // Broadcast both __host__ and hostPeerId if host so clients update their remotePlayer and self correctly
+    this._broadcast({ type: MP_MSG.PLAYER_REVIVED, peerId: isTargetHost ? '__host__' : targetPeerId, newMaxHp });
+    if (isTargetHost && this.peer?.id) {
+      this._broadcast({ type: MP_MSG.PLAYER_REVIVED, peerId: this.peer.id, newMaxHp });
+    }
   }
 
   // ── CLIENT: Self-revived ──────────────────────────────
@@ -1115,6 +1156,7 @@ class MultiplayerManager {
     player.maxHp          = newMaxHp;
     player.hp             = newMaxHp;
     player.isDown         = false;
+    player.revivalProgress = 0;
     player.invincibleTimer = 120;
     if (typeof showToast === 'function') showToast(`✨ 復活！ (最大HP: ${newMaxHp})`);
     if (typeof floatingTexts !== 'undefined' && typeof FloatingText !== 'undefined') {
@@ -1147,26 +1189,16 @@ class MultiplayerManager {
 
       const dist = Math.hypot(player.x - rp.displayX, player.y - rp.displayY);
       if (dist < player.grazeRadius + rp.radius + 8) {
-        const msg = { type: MP_MSG.REVIVE_PROGRESS, targetPeerId: peerId, dt };
+        // If client is reviving host, targetPeerId can be '__host__' or host peerId
+        const targetPeerId = (!this.isHost && (peerId === this.hostPeerId || peerId === '__host__')) ? '__host__' : peerId;
+        const msg = { type: MP_MSG.REVIVE_PROGRESS, targetPeerId, dt };
         if (this.isHost) {
-          this._processReviveProgress('__self_host__', { ...msg, targetPeerId: peerId });
+          this._processReviveProgress('__self_host__', { ...msg, targetPeerId });
         } else {
           const hc = this.connections[this.hostPeerId];
           if (hc && hc.open) this._send(hc, msg);
         }
         return; // Only revive one at a time
-      }
-    }
-
-    // Host checks if a client is nearby to revive the downed host player
-    if (this.isHost && player.isDown) {
-      for (const [peerId, state] of Object.entries(this.lastPlayerStates)) {
-        if (state.isDown || state.hp <= 0) continue;
-        const dist = Math.hypot(state.x - player.x, state.y - player.y);
-        if (dist < player.grazeRadius + 18) {
-          this._processReviveProgress(peerId, { targetPeerId: '__host__', dt });
-          break;
-        }
       }
     }
   }

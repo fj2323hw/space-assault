@@ -607,6 +607,7 @@ function returnToStart() {
   window.isMultiplayerMode = false;
   window.multiHpMult = 1;
   player.isDown    = false;
+  player.revivalProgress = 0;
   player.reviveCount = 0;
   showMenuStep('main');
 
@@ -1385,6 +1386,7 @@ const player = {
   lastSummonTime: 0,
   // Multiplayer: down/revival state
   isDown:          false,   // True when player is defeated in multiplayer (awaiting revival)
+  revivalProgress: 0,       // 0–1 when being revived by an ally
   reviveCount:     0        // How many times this player has been revived (maxHp decreases each time)
 };
 
@@ -3251,6 +3253,7 @@ function startGame(mode = 'SCORE_ATTACK') {
   player.mp = player.maxMp;
   player.wp = 0;
   player.isDown     = false;
+  player.revivalProgress = 0;
   player.reviveCount = 0;
   player.maxHp      = 100;  // Reset to base (may have been reduced by revival in previous game)
   player.hp         = 100;
@@ -4635,6 +4638,30 @@ function gameLoop(currentTime) {
       ctx.shadowBlur = 8;
       ctx.fillText('DOWN - 味方の救助を待っています', player.x, player.y - 25);
       ctx.restore();
+
+      // Revival progress ring for local player
+      if (player.revivalProgress > 0) {
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        ctx.beginPath();
+        ctx.arc(0, 0, 30, -Math.PI / 2,
+          -Math.PI / 2 + Math.PI * 2 * player.revivalProgress, false);
+        ctx.strokeStyle = '#7ee787';
+        ctx.lineWidth   = 4;
+        ctx.shadowColor = '#7ee787';
+        ctx.shadowBlur  = 10;
+        ctx.stroke();
+        ctx.restore();
+
+        // % text
+        ctx.save();
+        ctx.font         = 'bold 11px monospace';
+        ctx.fillStyle    = '#7ee787';
+        ctx.textAlign    = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(Math.floor(player.revivalProgress * 100) + '%', player.x, player.y + 24);
+        ctx.restore();
+      }
     } else {
       // Graze Circle Indicator
       ctx.save();
