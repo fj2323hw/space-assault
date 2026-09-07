@@ -36,9 +36,11 @@
     #gameContainer {
       position: relative;
       width: 100vw;
+      max-width: min(100vw, calc(100dvh * 9 / 16), 560px);
       height: 100vh;
       height: 100dvh;
       overflow: hidden;
+      box-shadow: 0 0 50px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(56, 189, 248, 0.2);
     }
 
     canvas {
@@ -638,6 +640,24 @@
       animation: none !important;
     }
 
+    /* Touch Controls Visibility: Hidden by default on PC, visible only on touch devices */
+    .joystick-container,
+    .touch-controls {
+      display: none !important;
+    }
+
+    body.touch-device .joystick-container {
+      display: block !important;
+    }
+
+    body.touch-device .touch-controls {
+      display: flex !important;
+    }
+
+    body.touch-device .skill-hud {
+      display: none !important;
+    }
+
     /* Game Over Modal */
     #gameOverScreen {
       position: absolute;
@@ -960,11 +980,8 @@
       transform: scale(0.96);
     }
 
-    /* Small Screen / Mobile Layout */
+    /* Small Screen / Mobile Layout adjustments */
     @media (max-width: 768px) {
-      .skill-hud {
-        display: none;
-      }
       .ui-overlay {
         top: 64px;
         left: 12px;
@@ -979,12 +996,6 @@
       .joystick-container {
         bottom: 25px;
         left: 20px;
-      }
-      .touch-skill-btn {
-        bottom: 25px;
-        right: 20px;
-        width: 74px;
-        height: 74px;
       }
     }
 
@@ -1981,7 +1992,7 @@
     </div>
 
     <!-- Mobile Touch Action Buttons (2x2 Grid + Ultimate Button on Top) -->
-    <div style="position: absolute; bottom: 22px; right: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 15; pointer-events: auto;">
+    <div class="touch-controls" id="touchControlsGroup" style="position: absolute; bottom: 22px; right: 16px; display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 15; pointer-events: auto;">
       <!-- Mobile Ultimate Button -->
       <div class="touch-action-btn ult-mode-btn" id="touchUltBtn" style="width: 142px; height: 38px; border-radius: 19px; flex-direction: row; gap: 6px;">
         <span style="font-size: 16px;">🔥</span>

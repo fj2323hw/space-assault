@@ -147,8 +147,10 @@ const joystickStick = document.getElementById('joystickStick');
 
 // Canvas Resize Handling
 function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  const container = document.getElementById('gameContainer') || document.body;
+  const rect = container.getBoundingClientRect();
+  canvas.width = Math.floor(rect.width);
+  canvas.height = Math.floor(rect.height);
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -179,8 +181,8 @@ const keys = {
 };
 
 const mouse = {
-  x: canvas.width / 2 + 120,
-  y: canvas.height / 2
+  x: canvas.width / 2,
+  y: canvas.height * 0.4
 };
 
 let isShooting = false;
@@ -206,12 +208,13 @@ const maxJoystickRadius = 45;
 function checkIsMobile() {
   const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0);
   const isMobileUA = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  return isTouchMode || hasTouch || isMobileUA || (canvas.height > canvas.width);
+  return isTouchMode || hasTouch || isMobileUA;
 }
 
 function switchToTouchMode() {
   if (!isTouchMode) {
     isTouchMode = true;
+    document.body.classList.add('touch-device');
     if (guideText) {
       guideText.innerHTML = `
         <div><span class="key">左下スティック</span>: 移動</div>
@@ -238,7 +241,7 @@ function switchToTouchMode() {
   }
 }
 
-if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+if ('ontouchstart' in window || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0 && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent))) {
   switchToTouchMode();
 }
 
@@ -637,7 +640,7 @@ function returnToStart() {
   afterimages.length = 0;
   floatingTexts.length = 0;
   player.x = canvas.width / 2;
-  player.y = canvas.height / 2;
+  player.y = canvas.height * 0.75;
   player.vx = 0;
   player.vy = 0;
   isShooting = false;
@@ -1540,7 +1543,7 @@ addMenuBtnListeners(homeBtn, returnToStart);
 // Player Object
 const player = {
   x: canvas.width / 2,
-  y: canvas.height / 2,
+  y: canvas.height * 0.75,
   radius: 18,
   speed: 3.8, // Slower player speed for better controllability
   friction: 0.86,
@@ -1847,8 +1850,7 @@ class SummonMinion {
     this.y = y;
     this.hp = 50;
     this.maxHp = 50;
-    const isMobile = checkIsMobile();
-    this.scale = isMobile ? 1.0 : 1.5;
+    this.scale = 1.0;
     this.radius = 22 * this.scale;
     this.angle = 0;
     this.rotSpeed = 0.035;
@@ -2049,8 +2051,8 @@ class Enemy {
     this.hasGrazed = false; // Graze flag
     this.angle = 0;
 
-    // PC version: 2x enemy size! (Mobile: 1x)
-    const scale = checkIsMobile() ? 1.0 : 2.0;
+    // Monster size scale: identical on PC and Mobile (1.0)
+    const scale = 1.0;
 
     if (type === 'large') {
       // Large Enemy: radius 34 (Mobile) / 68 (PC), 5 HP to kill
@@ -2307,8 +2309,8 @@ class BossBullet {
 // Position: Hang out at Right on PC (landscape), Top on Smartphone (portrait).
 class Boss {
   constructor() {
-    // Normal enemy radius is 17. 3x size = 51 on mobile. On PC, enemies are 2x (radius 102).
-    const scale = checkIsMobile() ? 1.0 : 2.0;
+    // Boss scale: identical on PC and Mobile (1.0)
+    const scale = 1.0;
     this.radius = 51 * scale;
     this.hp = Math.ceil(100 * (window.multiHpMult || 1));
     this.maxHp = this.hp;
@@ -3489,7 +3491,7 @@ function startGame(mode = 'SCORE_ATTACK') {
   player.hp         = 100;
   if (wpVal) wpVal.innerText = '0';
   player.x = canvas.width / 2;
-  player.y = canvas.height / 2;
+  player.y = canvas.height * 0.75;
   player.vx = 0;
   player.vy = 0;
   player.invincibleTimer = 50;
