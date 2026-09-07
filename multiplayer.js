@@ -911,6 +911,9 @@ class MultiplayerManager {
     } else {
       ro.boss = null;
     }
+    if (typeof updateBossHUD === 'function') {
+      updateBossHUD();
+    }
 
     // Boss Bullets: Match closest existing or create new
     const incomingBullets = gs.bossBullets || [];

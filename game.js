@@ -3223,11 +3223,13 @@ function defeatBoss() {
 
 function updateBossHUD() {
   if (!bossHud || !bossHpFill || !bossHpVal) return;
-  if (boss && boss.hp > 0) {
+  const isClientMP = window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost;
+  const activeBoss = isClientMP ? window.multiplayerManager?.remoteGameObjects?.boss : boss;
+  if (activeBoss && activeBoss.hp > 0) {
     bossHud.style.display = 'flex';
-    const hpPct = Math.max(0, (boss.hp / boss.maxHp) * 100);
+    const hpPct = Math.max(0, (activeBoss.hp / activeBoss.maxHp) * 100);
     bossHpFill.style.width = hpPct + '%';
-    bossHpVal.innerText = `${Math.ceil(boss.hp)}/${boss.maxHp}`;
+    bossHpVal.innerText = `${Math.ceil(activeBoss.hp)}/${activeBoss.maxHp}`;
   } else {
     bossHud.style.display = 'none';
   }
@@ -3608,6 +3610,9 @@ function updateHUD() {
     if (summonSlot) summonSlot.classList.remove('ult-disabled-slot');
     if (touchSummonBtn) touchSummonBtn.classList.remove('ult-disabled-slot');
   }
+
+  // Update Boss HUD (HP gauge & numerical display)
+  updateBossHUD();
 }
 
 // Background Grid Drawing
@@ -3798,7 +3803,8 @@ function gameLoop(currentTime) {
     }
 
     // Time-based Score Increment (In SCORE_ATTACK, +1 score per 0.1s; paused during Boss battle & warning)
-    const isBossActive = (boss && boss.hp > 0) || bossWarningTimeRemaining > 0;
+    const currentBossObj = isClientMP ? (window.multiplayerManager?.remoteGameObjects?.boss) : boss;
+    const isBossActive = (currentBossObj && currentBossObj.hp > 0) || bossWarningTimeRemaining > 0;
     if (gameMode === 'SCORE_ATTACK' && !isBossActive) {
       timeScoreAccumulator += dt;
       while (timeScoreAccumulator >= 0.1) {
@@ -3832,13 +3838,15 @@ function gameLoop(currentTime) {
       if (bossWarningTimeRemaining <= 0) {
         bossWarningTimeRemaining = 0;
         if (bossWarningOverlay) bossWarningOverlay.style.display = 'none';
-        // Spawn Level 1 Boss!
-        boss = new Boss();
-        updateBossHUD();
-        screenShake = 22;
-        floatingTexts.push(new FloatingText(boss.x, boss.y - 40, '👹 BOSS INCOMING!', '#ff1744'));
+        // Spawn Level 1 Boss! (In multiplayer client, boss is received from host via GAME_STATE)
+        if (!isClientMP) {
+          boss = new Boss();
+          updateBossHUD();
+          screenShake = 22;
+          floatingTexts.push(new FloatingText(boss.x, boss.y - 40, '👹 BOSS INCOMING!', '#ff1744'));
+        }
       }
-    } else if (boss && boss.hp > 0) {
+    } else if (currentBossObj && currentBossObj.hp > 0) {
       bossBattleElapsedTime += dt;
     }
 
@@ -3854,7 +3862,8 @@ function gameLoop(currentTime) {
     }
 
     // 2a-2. Blue MP Recovery Orb Spawner in Boss Mode & Boss Battles (Costs 0, restores +30 MP)
-    if (boss && boss.hp > 0) {
+    // In Multiplayer, only host spawns MP orbs
+    if (!isClientMP && boss && boss.hp > 0) {
       if (currentTime - lastMpOrbSpawnTime > mpOrbSpawnInterval) {
         spawnMpOrb();
         lastMpOrbSpawnTime = currentTime;
