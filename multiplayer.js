@@ -247,6 +247,257 @@ class RemotePlayer {
 }
 
 // ========================================================
+// HamGod Shared Visual Renderer (Blue Sapphire Djungarian)
+// ========================================================
+function drawHamGodVisual(ctx, x, y, radius, animTime, enrageLevel, laserActive, laserAngle) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // Divine Glowing Aureole / Halo (Behind hamster)
+  const auraPulse = Math.sin(animTime * 3.5) * 6;
+  const haloColor = enrageLevel >= 5 ? '#f59e0b' : (enrageLevel >= 3 ? '#38bdf8' : '#a78bfa');
+  ctx.save();
+  ctx.shadowColor = haloColor;
+  ctx.shadowBlur = (radius * 0.7) + auraPulse;
+  ctx.strokeStyle = haloColor;
+  ctx.lineWidth = Math.max(3, radius * 0.08);
+  ctx.setLineDash([12, 8]);
+  ctx.rotate(animTime * 0.8);
+  ctx.beginPath();
+  ctx.arc(0, 0, radius * 1.35 + auraPulse, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Divine Sunflower Seeds floating in orbit
+  const seedCount = 6;
+  for (let s = 0; s < seedCount; s++) {
+    const sAng = (s * Math.PI * 2 / seedCount) + animTime * 1.2;
+    const sDist = radius * 1.55;
+    const sx = Math.cos(sAng) * sDist;
+    const sy = Math.sin(sAng) * sDist;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(sAng + Math.PI / 2);
+    ctx.fillStyle = '#fde047';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 4, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // Dancing Body Sway & Bounce Animation
+  const danceAngle = Math.sin(animTime * 4.5) * 0.16;
+  const danceBounce = Math.abs(Math.sin(animTime * 9.0)) * 6;
+  ctx.translate(0, -danceBounce);
+  ctx.rotate(danceAngle);
+
+  // Feet (Cute pink dancing paws at bottom)
+  const footStepL = Math.sin(animTime * 9.0) * 5;
+  const footStepR = -Math.sin(animTime * 9.0) * 5;
+  ctx.fillStyle = '#fbcfe8'; // Soft pink
+  ctx.shadowBlur = 0;
+  // Left foot
+  ctx.beginPath();
+  ctx.ellipse(-radius * 0.38, radius * 0.85 + footStepL, radius * 0.2, radius * 0.14, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+  // Right foot
+  ctx.beginPath();
+  ctx.ellipse(radius * 0.38, radius * 0.85 + footStepR, radius * 0.2, radius * 0.14, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Fluffy Tail (tiny cotton puff at rear)
+  ctx.fillStyle = '#cbd5e1';
+  ctx.beginPath();
+  ctx.arc(-radius * 0.65, radius * 0.55, radius * 0.16, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Lower Body / Belly Base (Chubby round shape)
+  // Blue Sapphire fur gradient: slate sapphire blue on sides, creamy white on center
+  const bodyGrad = ctx.createRadialGradient(0, radius * 0.2, radius * 0.1, 0, radius * 0.2, radius * 0.95);
+  bodyGrad.addColorStop(0, '#f8fafc'); // White/cream belly
+  bodyGrad.addColorStop(0.55, '#64748b'); // Soft sapphire grey-blue
+  bodyGrad.addColorStop(0.9, '#334155'); // Deep blue-grey dorsal coat
+  bodyGrad.addColorStop(1, '#1e293b');
+
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, radius * 0.3, radius * 0.82, radius * 0.72, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // White Chest & Belly Oval
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.ellipse(0, radius * 0.36, radius * 0.52, radius * 0.54, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Distinct Djungarian Dorsal Stripe (Dark dorsal line down the back/head)
+  ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+  ctx.beginPath();
+  ctx.ellipse(0, -radius * 0.1, radius * 0.1, radius * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Head (Rounded, sitting atop torso)
+  const headGrad = ctx.createRadialGradient(0, -radius * 0.35, 2, 0, -radius * 0.35, radius * 0.65);
+  headGrad.addColorStop(0, '#94a3b8');
+  headGrad.addColorStop(0.7, '#475569');
+  headGrad.addColorStop(1, '#1e293b');
+  ctx.fillStyle = headGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, -radius * 0.35, radius * 0.66, radius * 0.58, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cheeks (Puffy cute white cheek patches)
+  ctx.fillStyle = '#f1f5f9';
+  ctx.beginPath();
+  ctx.ellipse(-radius * 0.34, -radius * 0.24, radius * 0.26, radius * 0.28, -0.2, 0, Math.PI * 2);
+  ctx.ellipse(radius * 0.34, -radius * 0.24, radius * 0.26, radius * 0.28, 0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Soft Pink Blush on Cheeks
+  ctx.fillStyle = 'rgba(244, 114, 182, 0.45)';
+  ctx.beginPath();
+  ctx.arc(-radius * 0.36, -radius * 0.22, radius * 0.13, 0, Math.PI * 2);
+  ctx.arc(radius * 0.36, -radius * 0.22, radius * 0.13, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Ears (Small round pink ears, Djungarian signature)
+  const earWiggleL = Math.sin(animTime * 7.0) * 0.1;
+  const earWiggleR = Math.cos(animTime * 7.0) * 0.1;
+  // Outer ears (sapphire blue-grey)
+  ctx.fillStyle = '#475569';
+  ctx.beginPath();
+  ctx.ellipse(-radius * 0.46, -radius * 0.78, radius * 0.2, radius * 0.25, -0.3 + earWiggleL, 0, Math.PI * 2);
+  ctx.ellipse(radius * 0.46, -radius * 0.78, radius * 0.2, radius * 0.25, 0.3 + earWiggleR, 0, Math.PI * 2);
+  ctx.fill();
+  // Inner ears (soft pink)
+  ctx.fillStyle = '#f472b6';
+  ctx.beginPath();
+  ctx.ellipse(-radius * 0.46, -radius * 0.78, radius * 0.13, radius * 0.17, -0.3 + earWiggleL, 0, Math.PI * 2);
+  ctx.ellipse(radius * 0.46, -radius * 0.78, radius * 0.13, radius * 0.17, 0.3 + earWiggleR, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Sparkling Black Eyes with divine highlights
+  ctx.fillStyle = '#0f172a';
+  ctx.beginPath();
+  ctx.arc(-radius * 0.24, -radius * 0.38, radius * 0.12, 0, Math.PI * 2);
+  ctx.arc(radius * 0.24, -radius * 0.38, radius * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Eye highlights (Large sparkly twinkle)
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(-radius * 0.26, -radius * 0.41, radius * 0.045, 0, Math.PI * 2);
+  ctx.arc(-radius * 0.21, -radius * 0.35, radius * 0.025, 0, Math.PI * 2);
+  ctx.arc(radius * 0.22, -radius * 0.41, radius * 0.045, 0, Math.PI * 2);
+  ctx.arc(radius * 0.27, -radius * 0.35, radius * 0.025, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Little Pink Nose & Y-shaped Mouth
+  ctx.fillStyle = '#fb7185';
+  ctx.beginPath();
+  ctx.arc(0, -radius * 0.22, radius * 0.055, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#64748b';
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(0, -radius * 0.17);
+  ctx.lineTo(0, -radius * 0.12);
+  ctx.lineTo(-radius * 0.08, -radius * 0.08);
+  ctx.moveTo(0, -radius * 0.12);
+  ctx.lineTo(radius * 0.08, -radius * 0.08);
+  ctx.stroke();
+
+  // Tiny Whiskers
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  // Left whiskers
+  ctx.moveTo(-radius * 0.3, -radius * 0.18);
+  ctx.lineTo(-radius * 0.65, -radius * 0.22);
+  ctx.moveTo(-radius * 0.3, -radius * 0.14);
+  ctx.lineTo(-radius * 0.62, -radius * 0.10);
+  // Right whiskers
+  ctx.moveTo(radius * 0.3, -radius * 0.18);
+  ctx.lineTo(radius * 0.65, -radius * 0.22);
+  ctx.moveTo(radius * 0.3, -radius * 0.14);
+  ctx.lineTo(radius * 0.62, -radius * 0.10);
+  ctx.stroke();
+
+  // Dancing Front Paws (Flapping up and down rhythmically!)
+  const pawWaveL = Math.sin(animTime * 9.0) * (radius * 0.16);
+  const pawWaveR = -Math.sin(animTime * 9.0) * (radius * 0.16);
+  ctx.fillStyle = '#fbcfe8';
+  ctx.beginPath();
+  ctx.ellipse(-radius * 0.22, radius * 0.08 + pawWaveL, radius * 0.12, radius * 0.09, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(radius * 0.22, radius * 0.08 + pawWaveR, radius * 0.12, radius * 0.09, 0.4, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Crown of the Hamster God (Golden heavenly coronet)
+  ctx.save();
+  ctx.translate(0, -radius * 0.95);
+  ctx.fillStyle = '#fbbf24';
+  ctx.strokeStyle = '#d97706';
+  ctx.lineWidth = 2;
+  ctx.shadowColor = '#f59e0b';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(-radius * 0.28, 0);
+  ctx.lineTo(-radius * 0.32, -radius * 0.3);
+  ctx.lineTo(-radius * 0.14, -radius * 0.14);
+  ctx.lineTo(0, -radius * 0.4);
+  ctx.lineTo(radius * 0.14, -radius * 0.14);
+  ctx.lineTo(radius * 0.32, -radius * 0.3);
+  ctx.lineTo(radius * 0.28, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Crown Gem (Blue sapphire jewel!)
+  ctx.fillStyle = '#38bdf8';
+  ctx.beginPath();
+  ctx.arc(0, -radius * 0.18, radius * 0.07, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  ctx.restore(); // Restore body sway
+
+  // Beam / Laser Visual if currently firing
+  if (laserActive) {
+    ctx.save();
+    ctx.rotate(laserAngle);
+
+    // Laser core and outer blazing aura
+    const laserLength = 1600;
+    const lWidth = 34 + Math.sin(animTime * 18) * 8;
+
+    // Outer glow
+    ctx.shadowColor = '#38bdf8';
+    ctx.shadowBlur = 24;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.fillRect(0, -lWidth / 2, laserLength, lWidth);
+
+    // Inner bright beam
+    ctx.fillStyle = '#67e8f9';
+    ctx.fillRect(0, -lWidth * 0.28, laserLength, lWidth * 0.56);
+
+    // Core white hot line
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, -lWidth * 0.12, laserLength, lWidth * 0.24);
+
+    // Muzzle blast rings
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, lWidth * 0.9, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
+// ========================================================
 // RemoteEnemy — lightweight predictive enemy for clients
 // ========================================================
 class RemoteEnemy {
@@ -443,7 +694,7 @@ class RemoteBoss {
   }
 
   draw(ctx) {
-    this._phase += 0.015;
+    this._phase = (this._phase || 0) + 0.015;
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -493,6 +744,54 @@ class RemoteBoss {
     ctx.fill();
 
     ctx.restore();
+  }
+}
+
+// ========================================================
+// RemoteEventBoss — lightweight draw-only HamGod for clients
+// ========================================================
+class RemoteEventBoss {
+  constructor(data) {
+    Object.assign(this, data);
+    this.targetX = data.x || 0;
+    this.targetY = data.y || 0;
+    this.angle   = data.angle || 0;
+    this.totalDamage = data.totalDamage || 0;
+    this.enrageLevel = data.enrageLevel || 1;
+    this.animTime = 0;
+    this.laserActive = false;
+    this.laserAngle = 0;
+    this.laserLength = 1500;
+    this.laserWidth = 34;
+    this.hasGrazed = false;
+  }
+
+  updateState(data) {
+    this.targetX = data.x;
+    this.targetY = data.y;
+    this.hp      = data.hp;
+    this.maxHp   = data.maxHp;
+    this.radius  = data.radius;
+    this.totalDamage = data.totalDamage || 0;
+    this.enrageLevel = data.enrageLevel || 1;
+    this.laserActive = !!data.laserActive;
+    this.laserAngle  = data.laserAngle || 0;
+    if (data.angle != null) this.angle = data.angle;
+
+    if (Math.hypot(this.targetX - this.x, this.targetY - this.y) > 150) {
+      this.x = this.targetX;
+      this.y = this.targetY;
+    }
+  }
+
+  update(ts = 1.0) {
+    this.x += (this.targetX - this.x) * 0.35;
+    this.y += (this.targetY - this.y) * 0.35;
+    this.animTime += 0.05 * ts;
+  }
+
+  draw(ctx) {
+    drawHamGodVisual(ctx, this.x, this.y, this.radius, this.animTime, this.enrageLevel, this.laserActive, this.laserAngle);
   }
 }
 
@@ -667,7 +966,9 @@ class MultiplayerManager {
       const roomData = doc.data();
 
       if (expectedMode && roomData.gameMode && roomData.gameMode !== expectedMode) {
-        const modeName = (roomData.gameMode === 'BOSS') ? 'ボス戦' : 'スコアアタック';
+        let modeName = 'スコアアタック';
+        if (roomData.gameMode === 'BOSS') modeName = 'ボス戦';
+        else if (roomData.gameMode === 'EVENT_BOSS') modeName = 'イベントボス (ハム神)';
         return { success: false, error: `この部屋は【${modeName}】の部屋です` };
       }
 
@@ -976,8 +1277,9 @@ class MultiplayerManager {
 
     // Boss
     if (gs.boss) {
-      if (!ro.boss) {
-        ro.boss = new RemoteBoss(gs.boss);
+      const isEvent = !!gs.boss.isEventBoss;
+      if (!ro.boss || (isEvent && !(ro.boss instanceof RemoteEventBoss)) || (!isEvent && (ro.boss instanceof RemoteEventBoss))) {
+        ro.boss = isEvent ? new RemoteEventBoss(gs.boss) : new RemoteBoss(gs.boss);
       } else {
         ro.boss.updateState(gs.boss);
       }
@@ -1352,7 +1654,12 @@ class MultiplayerManager {
         })) : [],
         boss: (typeof boss !== 'undefined' && boss && boss.hp > 0) ? {
           x: boss.x, y: boss.y, hp: boss.hp, maxHp: boss.maxHp,
-          radius: boss.radius, angle: boss.angle
+          radius: boss.radius, angle: boss.angle,
+          isEventBoss: !!boss.isEventBoss,
+          totalDamage: boss.totalDamage || 0,
+          enrageLevel: boss.enrageLevel || 1,
+          laserActive: !!boss.laserActive,
+          laserAngle:  boss.laserAngle || 0
         } : null,
         bossBullets: (typeof bossBullets !== 'undefined') ? bossBullets.map(b => ({
           x: b.x, y: b.y, vx: b.vx, vy: b.vy, radius: b.radius
