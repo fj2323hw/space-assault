@@ -40,19 +40,22 @@ let timeScale = 1.0;
 const slashEffects = [];
 
 // Multiplayer UI element references (set after DOM ready)
-let menuStepMultiSub, menuStepMultiCreateMode, menuStepMultiCreateForm;
+let menuStepMultiSub, menuStepMultiCreateMode, menuStepMultiCreateForm, menuStepMultiBossCreate;
 let menuStepMultiJoinMode, menuStepMultiJoinForm, menuStepMultiWait;
 let multiCreateBtn, multiJoinBtn, backToModeFromMultiBtn;
-let multiCreateScoreBtn, backToMultiSubFromCreateBtn;
+let multiCreateScoreBtn, multiCreateBossBtn, backToMultiSubFromCreateBtn;
 let multiCreateName, multiCreatePasscode, playerCountMinusBtn, playerCountPlusBtn, playerCountVal;
-let multiCreateRoomBtn, multiCreateError, multiCreateConnecting, backToMultiCreateModeBtn;
-let multiJoinScoreBtn, backToMultiSubFromJoinBtn;
+let multiCreateRoomBtn, multiCreateError, multiCreateConnecting, backToMultiCreateModeBtn, backToMultiCreateFormBtn;
+let multiJoinScoreBtn, multiJoinBossBtn, backToMultiSubFromJoinBtn;
 let multiJoinName, multiJoinPasscode, multiJoinRoomBtn, multiJoinError, multiJoinConnecting, backToMultiJoinModeBtn;
 let multiPlayerList, multiWaitPasscode, multiWaitHint, multiStartGameBtn, backFromMultiWaitBtn;
+let multiWaitBossLevelBar, multiWaitBossLvlMinusBtn, multiWaitBossLvlPlusBtn, multiWaitBossLvlText, multiWaitTitle;
 
 // Multiplayer runtime state
-let _multiMaxPlayers = 2;     // selected max players (create form)
+let multiBossLevel = 1;
 let _multiIsCreator  = true;  // true = host side, false = join side
+let _multiMaxPlayers = 2;
+let _pendingMultiMode = 'SCORE_ATTACK'; // 'SCORE_ATTACK' or 'BOSS'
 
 
 const guideText = document.getElementById('guideText');
@@ -121,9 +124,12 @@ const skipRecordBtn = document.getElementById('skipRecordBtn');
 // Leaderboard Client State
 let currentLeaderboardTab = 'SCORE_ATTACK'; // 'SCORE_ATTACK' or 'BOSS'
 let currentLeaderboardDevice = 'pc'; // 'pc' or 'mobile'
+let currentLeaderboardCategory = 'solo'; // 'solo' or 'multi'
 let leaderboardBossLevel = 1;
 const lbDeviceTabPC = document.getElementById('lbDeviceTabPC');
 const lbDeviceTabMobile = document.getElementById('lbDeviceTabMobile');
+const lbCatTabSolo = document.getElementById('lbCatTabSolo');
+const lbCatTabMulti = document.getElementById('lbCatTabMulti');
 let cachedLeaderboardData = null;
 let pendingRecordToRegister = null;
 
@@ -584,6 +590,7 @@ function showMenuStep(step) {
   if (menuStepMultiSub)        menuStepMultiSub.style.display        = (step === 'multiSub')        ? 'flex' : 'none';
   if (menuStepMultiCreateMode) menuStepMultiCreateMode.style.display = (step === 'multiCreateMode') ? 'flex' : 'none';
   if (menuStepMultiCreateForm) menuStepMultiCreateForm.style.display = (step === 'multiCreateForm') ? 'flex' : 'none';
+  if (menuStepMultiBossCreate) menuStepMultiBossCreate.style.display = (step === 'multiBossCreate') ? 'flex' : 'none';
   if (menuStepMultiJoinMode)   menuStepMultiJoinMode.style.display   = (step === 'multiJoinMode')   ? 'flex' : 'none';
   if (menuStepMultiJoinForm)   menuStepMultiJoinForm.style.display   = (step === 'multiJoinForm')   ? 'flex' : 'none';
   if (menuStepMultiWait)       menuStepMultiWait.style.display       = (step === 'multiWait')       ? 'flex' : 'none';
@@ -696,12 +703,25 @@ function initMultiplayerUI() {
   multiJoinRoomBtn           = document.getElementById('multiJoinRoomBtn');
   multiJoinError             = document.getElementById('multiJoinError');
   multiJoinConnecting        = document.getElementById('multiJoinConnecting');
-  backToMultiJoinModeBtn     = document.getElementById('backToMultiJoinModeBtn');
+  menuStepMultiBossCreate    = document.getElementById('menuStepMultiBossCreate');
+  backToMultiCreateFormBtn   = document.getElementById('backToMultiCreateFormBtn');
+  multiBossLvlMinusBtn       = document.getElementById('multiBossLvlMinusBtn');
+  multiBossLvlPlusBtn        = document.getElementById('multiBossLvlPlusBtn');
+  multiBossLvlText           = document.getElementById('multiBossLvlText');
+  multiBossStartBtn          = document.getElementById('multiBossStartBtn');
+  multiCreateBossBtn         = document.getElementById('multiCreateBossBtn');
+  multiJoinBossBtn           = document.getElementById('multiJoinBossBtn');
+
   multiPlayerList            = document.getElementById('multiPlayerList');
   multiWaitPasscode          = document.getElementById('multiWaitPasscode');
   multiWaitHint              = document.getElementById('multiWaitHint');
   multiStartGameBtn          = document.getElementById('multiStartGameBtn');
   backFromMultiWaitBtn       = document.getElementById('backFromMultiWaitBtn');
+  multiWaitTitle             = document.getElementById('multiWaitTitle');
+  multiWaitBossLevelBar      = document.getElementById('multiWaitBossLevelBar');
+  multiWaitBossLvlMinusBtn   = document.getElementById('multiWaitBossLvlMinusBtn');
+  multiWaitBossLvlPlusBtn    = document.getElementById('multiWaitBossLvlPlusBtn');
+  multiWaitBossLvlText       = document.getElementById('multiWaitBossLvlText');
 
   // Step 2: Multi mode button -> Multi sub (Create / Join)
   addMenuBtnListeners(multiModeBtn, () => {
@@ -726,8 +746,26 @@ function initMultiplayerUI() {
 
   // Multi Create Mode: Score Attack -> Create Form
   addMenuBtnListeners(multiCreateScoreBtn, () => {
+    _pendingMultiMode = 'SCORE_ATTACK';
+    const formTitle = document.querySelector('#menuStepMultiCreateForm .menu-step-title');
+    if (formTitle) formTitle.innerText = '⚡ 部屋を作る';
+    if (multiCreateRoomBtn) multiCreateRoomBtn.innerText = '🏠 部屋を作成';
     showMenuStep('multiCreateForm');
     updateCreateBtnState();
+  });
+
+  // Multi Create Mode: Boss Battle -> Create Form (Same flow as score attack)
+  addMenuBtnListeners(multiCreateBossBtn, () => {
+    _pendingMultiMode = 'BOSS';
+    const formTitle = document.querySelector('#menuStepMultiCreateForm .menu-step-title');
+    if (formTitle) formTitle.innerText = '👹 ボス戦 — 部屋を作る';
+    if (multiCreateRoomBtn) multiCreateRoomBtn.innerText = '🏠 部屋を作成';
+    showMenuStep('multiCreateForm');
+    updateCreateBtnState();
+  });
+
+  addMenuBtnListeners(backToMultiCreateFormBtn, () => {
+    showMenuStep('multiCreateForm');
   });
 
   addMenuBtnListeners(backToMultiSubFromCreateBtn, () => {
@@ -736,20 +774,35 @@ function initMultiplayerUI() {
 
   // Multi Join Mode: Score Attack -> Join Form
   addMenuBtnListeners(multiJoinScoreBtn, () => {
+    _pendingMultiMode = 'SCORE_ATTACK';
     showMenuStep('multiJoinForm');
     updateJoinBtnState();
+    const formTitle = document.querySelector('#menuStepMultiJoinForm .menu-step-title');
+    if (formTitle) formTitle.innerText = '🔗 部屋に参加 (スコアアタック)';
+  });
+
+  // Multi Join Mode: Boss Battle -> Join Form
+  addMenuBtnListeners(multiJoinBossBtn, () => {
+    _pendingMultiMode = 'BOSS';
+    showMenuStep('multiJoinForm');
+    updateJoinBtnState();
+    const formTitle = document.querySelector('#menuStepMultiJoinForm .menu-step-title');
+    if (formTitle) formTitle.innerText = '🔗 部屋に参加 (ボス戦)';
   });
 
   addMenuBtnListeners(backToMultiSubFromJoinBtn, () => {
     showMenuStep('multiSub');
+    _pendingMultiMode = 'SCORE_ATTACK';
   });
 
   addMenuBtnListeners(backToMultiCreateModeBtn, () => {
     showMenuStep('multiCreateMode');
+    _pendingMultiMode = 'SCORE_ATTACK';
   });
 
   addMenuBtnListeners(backToMultiJoinModeBtn, () => {
     showMenuStep('multiJoinMode');
+    _pendingMultiMode = 'SCORE_ATTACK';
   });
 
   // Player count +/- buttons
@@ -807,16 +860,18 @@ function initMultiplayerUI() {
     window.multiplayerManager = new MultiplayerManager();
     setupMultiplayerCallbacks();
 
-    const res = await window.multiplayerManager.createRoom(name, pass, _multiMaxPlayers, 'SCORE_ATTACK');
+    const res = await window.multiplayerManager.createRoom(name, pass, _multiMaxPlayers, _pendingMultiMode, multiBossLevel);
     if (multiCreateConnecting) multiCreateConnecting.style.display = 'none';
 
     if (res.success) {
+      bossLevel = multiBossLevel;
       if (multiWaitPasscode) multiWaitPasscode.innerText = pass;
       if (multiWaitHint) multiWaitHint.innerText = `合言葉【${pass}】を仲間に伝えてください`;
       if (multiStartGameBtn) {
         multiStartGameBtn.style.display = 'flex';
         multiStartGameBtn.disabled = true; // Enabled when at least 2 players in room
       }
+      updateWaitingRoomUI();
       renderWaitingRoomPlayers(window.multiplayerManager.lobbyPlayers, _multiMaxPlayers);
       showMenuStep('multiWait');
     } else {
@@ -844,13 +899,14 @@ function initMultiplayerUI() {
     window.multiplayerManager = new MultiplayerManager();
     setupMultiplayerCallbacks();
 
-    const res = await window.multiplayerManager.joinRoom(name, pass);
+    const res = await window.multiplayerManager.joinRoom(name, pass, _pendingMultiMode);
     if (multiJoinConnecting) multiJoinConnecting.style.display = 'none';
 
     if (res.success) {
       if (multiWaitPasscode) multiWaitPasscode.innerText = pass;
       if (multiWaitHint) multiWaitHint.innerText = 'ホストがゲームを開始するまでお待ちください...';
       if (multiStartGameBtn) multiStartGameBtn.style.display = 'none';
+      updateWaitingRoomUI();
       showMenuStep('multiWait');
     } else {
       multiJoinRoomBtn.disabled = false;
@@ -920,18 +976,30 @@ function setupMultiplayerCallbacks() {
   if (!mp) return;
 
   mp.onRoomUpdate = (players) => {
+    updateWaitingRoomUI();
     renderWaitingRoomPlayers(players, mp.maxPlayers);
   };
 
   mp.onGameStart = (cfg) => {
     window.isMultiplayerMode = true;
     window.multiHpMult = cfg.playerCount || 1;
+    if (cfg.gameMode === 'BOSS') {
+      bossLevel = cfg.bossLevel || 1;
+      multiBossLevel = bossLevel;
+    }
     startGame(cfg.gameMode || 'SCORE_ATTACK');
     showToast(`👥 マルチプレイ開始！ (${cfg.playerCount}人)`);
   };
 
   mp.onGameOver = (data) => {
-    gameOver();
+    if (data && data.reason === 'boss_clear') {
+      if (data.bossClearTime != null) {
+        bossBattleElapsedTime = data.bossClearTime;
+      }
+      gameOver('VICTORY');
+    } else {
+      gameOver();
+    }
   };
 
   mp.onError = (msg) => {
@@ -960,6 +1028,81 @@ function bossLvlPlus() {
 addMenuBtnListeners(bossLvlMinusBtn, bossLvlMinus);
 addMenuBtnListeners(bossLvlPlusBtn, bossLvlPlus);
 
+// Multiplayer waiting room UI update
+function updateWaitingRoomUI() {
+  const isBoss = (window.multiplayerManager?.gameMode === 'BOSS') || (_pendingMultiMode === 'BOSS');
+  if (multiWaitTitle) {
+    multiWaitTitle.innerText = isBoss ? '👹 ボス戦 待機室' : '待機室';
+  }
+  if (multiWaitBossLevelBar) {
+    multiWaitBossLevelBar.style.display = isBoss ? 'block' : 'none';
+  }
+  if (multiWaitBossLvlText) {
+    multiWaitBossLvlText.innerText = `レベル${multiBossLevel}`;
+  }
+  const isHost = !window.multiplayerManager || window.multiplayerManager.isHost;
+  if (multiWaitBossLvlMinusBtn) multiWaitBossLvlMinusBtn.style.visibility = isHost ? 'visible' : 'hidden';
+  if (multiWaitBossLvlPlusBtn) multiWaitBossLvlPlusBtn.style.visibility = isHost ? 'visible' : 'hidden';
+}
+
+// Multiplayer waiting room boss level controls
+function multiWaitBossLvlMinus() {
+  if (multiBossLevel > 1) {
+    multiBossLevel--;
+    if (multiWaitBossLvlText) multiWaitBossLvlText.innerText = `レベル${multiBossLevel}`;
+    if (multiBossLvlText) multiBossLvlText.innerText = `レベル${multiBossLevel}`;
+    if (window.multiplayerManager) window.multiplayerManager.bossLevel = multiBossLevel;
+    bossLevel = multiBossLevel;
+  } else {
+    showToast('1より下はありません');
+  }
+}
+function multiWaitBossLvlPlus() {
+  if (multiBossLevel < 5) {
+    multiBossLevel++;
+    if (multiWaitBossLvlText) multiWaitBossLvlText.innerText = `レベル${multiBossLevel}`;
+    if (multiBossLvlText) multiBossLvlText.innerText = `レベル${multiBossLevel}`;
+    if (window.multiplayerManager) window.multiplayerManager.bossLevel = multiBossLevel;
+    bossLevel = multiBossLevel;
+    showToast(`ボスレベルを ${multiBossLevel} に変更しました`);
+  } else {
+    showToast('レベル5が上限です');
+  }
+}
+addMenuBtnListeners(multiWaitBossLvlMinusBtn, multiWaitBossLvlMinus);
+addMenuBtnListeners(multiWaitBossLvlPlusBtn, multiWaitBossLvlPlus);
+
+// Multiplayer boss level controls (backward compatibility)
+function multiBossLvlMinus() { multiWaitBossLvlMinus(); }
+function multiBossLvlPlus() { multiWaitBossLvlPlus(); }
+addMenuBtnListeners(multiBossLvlMinusBtn, multiBossLvlMinus);
+addMenuBtnListeners(multiBossLvlPlusBtn, multiBossLvlPlus);
+
+addMenuBtnListeners(multiBossStartBtn, async () => {
+  const name = multiCreateName.value.trim();
+  const pass = multiCreatePasscode.value.trim();
+  if (!name || pass.length !== 4) return;
+  if (multiCreateError) { multiCreateError.innerText=''; multiCreateError.classList.remove('visible'); }
+  if (multiCreateConnecting) multiCreateConnecting.style.display='flex';
+  multiCreateRoomBtn.disabled = true;
+  window.multiplayerManager = new MultiplayerManager();
+  setupMultiplayerCallbacks();
+  const res = await window.multiplayerManager.createRoom(name, pass, _multiMaxPlayers, 'BOSS', multiBossLevel);
+  if (multiCreateConnecting) multiCreateConnecting.style.display='none';
+  if (res.success) {
+    bossLevel = multiBossLevel;
+    if (multiWaitPasscode) multiWaitPasscode.innerText = pass;
+    if (multiWaitHint) multiWaitHint.innerText = `合言葉【${pass}】を仲間に伝えてください`;
+    if (multiStartGameBtn) { multiStartGameBtn.style.display='flex'; multiStartGameBtn.disabled = true; }
+    renderWaitingRoomPlayers(window.multiplayerManager.lobbyPlayers, _multiMaxPlayers);
+    showMenuStep('multiWait');
+  } else {
+    multiCreateRoomBtn.disabled = false;
+    if (multiBossStartBtn) multiBossStartBtn.disabled = false;
+    if (multiCreateError) { multiCreateError.innerText = res.error || '部屋の作成に失敗しました'; multiCreateError.classList.add('visible'); }
+  }
+});
+
 
 // ==========================================
 // ONLINE LEADERBOARD SYSTEM (Firestore & Local Fallback)
@@ -979,37 +1122,42 @@ async function fetchOnlineLeaderboard() {
         records.push(doc.data());
       });
 
-      // Organize into standard structure: { pc: { scoreAttack: [], boss: {} }, mobile: { scoreAttack: [], boss: {} } }
+      // Organize into standard structure: { solo: { pc: ..., mobile: ... }, multi: { pc: ..., mobile: ... } }
       const formatted = {
-        pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } },
-        mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } }
+        solo: {
+          pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } },
+          mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } }
+        },
+        multi: {
+          pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } },
+          mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } }
+        }
       };
 
       records.forEach((rec) => {
+        const cat = (rec.category === 'multi' || rec.isMulti) ? 'multi' : 'solo';
         const dev = (rec.device === 'mobile') ? 'mobile' : 'pc';
         if (rec.mode === 'SCORE_ATTACK') {
-          formatted[dev].scoreAttack.push(rec);
+          formatted[cat][dev].scoreAttack.push(rec);
         } else if (rec.mode === 'BOSS') {
           const lvl = String(rec.level || 1);
-          if (!formatted[dev].boss[lvl]) formatted[dev].boss[lvl] = [];
-          formatted[dev].boss[lvl].push(rec);
+          if (!formatted[cat][dev].boss[lvl]) formatted[cat][dev].boss[lvl] = [];
+          formatted[cat][dev].boss[lvl].push(rec);
         }
       });
 
-      // Sort Score Attack desc (high to low)
-      formatted.pc.scoreAttack.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
-      formatted.mobile.scoreAttack.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
-
-      // Sort Boss time asc (fastest to slowest)
-      for (let l = 1; l <= 5; l++) {
-        const lvl = String(l);
-        if (formatted.pc.boss[lvl]) {
-          formatted.pc.boss[lvl].sort((a, b) => (Number(a.time) || 999999) - (Number(b.time) || 999999));
-        }
-        if (formatted.mobile.boss[lvl]) {
-          formatted.mobile.boss[lvl].sort((a, b) => (Number(a.time) || 999999) - (Number(b.time) || 999999));
-        }
-      }
+      // Sort Score Attack desc (high to low) and Boss time asc (fastest to slowest)
+      ['solo', 'multi'].forEach((cat) => {
+        ['pc', 'mobile'].forEach((dev) => {
+          formatted[cat][dev].scoreAttack.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
+          for (let l = 1; l <= 5; l++) {
+            const lvl = String(l);
+            if (formatted[cat][dev].boss[lvl]) {
+              formatted[cat][dev].boss[lvl].sort((a, b) => (Number(a.time) || 999999) - (Number(b.time) || 999999));
+            }
+          }
+        });
+      });
 
       cachedLeaderboardData = formatted;
       try {
@@ -1034,14 +1182,14 @@ async function fetchOnlineLeaderboard() {
         cachedLeaderboardData = JSON.parse(local);
       } else {
         cachedLeaderboardData = {
-          pc: { scoreAttack: [], boss: { '1': [] } },
-          mobile: { scoreAttack: [], boss: { '1': [] } }
+          solo: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } },
+          multi: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } }
         };
       }
     } catch (e) {
       cachedLeaderboardData = {
-        pc: { scoreAttack: [], boss: { '1': [] } },
-        mobile: { scoreAttack: [], boss: { '1': [] } }
+        solo: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } },
+        multi: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } }
       };
     }
     renderLeaderboardView();
@@ -1055,8 +1203,9 @@ function renderLeaderboardView() {
   lbTableBody.innerHTML = '';
   if (!cachedLeaderboardData) return;
 
-  // Retrieve partition for current device tab ('pc' or 'mobile')
-  const deviceData = cachedLeaderboardData[currentLeaderboardDevice] || cachedLeaderboardData;
+  // Retrieve partition for current category ('solo' or 'multi') and device ('pc' or 'mobile')
+  const catData = cachedLeaderboardData[currentLeaderboardCategory] || cachedLeaderboardData.solo || cachedLeaderboardData;
+  const deviceData = catData[currentLeaderboardDevice] || catData;
 
   let list = [];
   const isScoreMode = (currentLeaderboardTab === 'SCORE_ATTACK');
@@ -1109,15 +1258,23 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-function openLeaderboardModal(tab = 'SCORE_ATTACK', bossLvl = 1) {
+function openLeaderboardModal(tab = 'SCORE_ATTACK', bossLvl = 1, category = null) {
   currentLeaderboardTab = tab;
   leaderboardBossLevel = bossLvl;
+  if (category) {
+    currentLeaderboardCategory = category;
+  } else {
+    currentLeaderboardCategory = window.isMultiplayerMode ? 'multi' : 'solo';
+  }
 
   // Auto-detect player's default device view
   currentLeaderboardDevice = checkIsMobile() ? 'mobile' : 'pc';
 
   if (lbDeviceTabPC) lbDeviceTabPC.classList.toggle('active', currentLeaderboardDevice === 'pc');
   if (lbDeviceTabMobile) lbDeviceTabMobile.classList.toggle('active', currentLeaderboardDevice === 'mobile');
+
+  if (lbCatTabSolo) lbCatTabSolo.classList.toggle('active', currentLeaderboardCategory === 'solo');
+  if (lbCatTabMulti) lbCatTabMulti.classList.toggle('active', currentLeaderboardCategory === 'multi');
 
   if (lbTabScore) lbTabScore.classList.toggle('active', tab === 'SCORE_ATTACK');
   if (lbTabBoss) lbTabBoss.classList.toggle('active', tab === 'BOSS');
@@ -1134,23 +1291,41 @@ function closeLeaderboard() {
 if (soloLeaderboardBtn) {
   soloLeaderboardBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    openLeaderboardModal('SCORE_ATTACK', 1);
+    openLeaderboardModal('SCORE_ATTACK', 1, 'solo');
   });
 }
 if (bossStepLeaderboardBtn) {
   bossStepLeaderboardBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    openLeaderboardModal('BOSS', bossLevel);
+    openLeaderboardModal('BOSS', bossLevel, 'solo');
   });
 }
 if (gameoverLeaderboardBtn) {
   gameoverLeaderboardBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    openLeaderboardModal(gameMode === 'BOSS' ? 'BOSS' : 'SCORE_ATTACK', bossLevel);
+    openLeaderboardModal(gameMode === 'BOSS' ? 'BOSS' : 'SCORE_ATTACK', bossLevel, window.isMultiplayerMode ? 'multi' : 'solo');
   });
 }
 if (closeLeaderboardBtn) closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
 if (closeLeaderboardBottomBtn) closeLeaderboardBottomBtn.addEventListener('click', closeLeaderboard);
+
+// Category tab switching inside Leaderboard Modal (Solo / Multi)
+if (lbCatTabSolo) {
+  lbCatTabSolo.addEventListener('click', () => {
+    currentLeaderboardCategory = 'solo';
+    lbCatTabSolo.classList.add('active');
+    if (lbCatTabMulti) lbCatTabMulti.classList.remove('active');
+    renderLeaderboardView();
+  });
+}
+if (lbCatTabMulti) {
+  lbCatTabMulti.addEventListener('click', () => {
+    currentLeaderboardCategory = 'multi';
+    lbCatTabMulti.classList.add('active');
+    if (lbCatTabSolo) lbCatTabSolo.classList.remove('active');
+    renderLeaderboardView();
+  });
+}
 
 // Device tab switching inside Leaderboard Modal (PC / Mobile)
 if (lbDeviceTabPC) {
@@ -1170,7 +1345,7 @@ if (lbDeviceTabMobile) {
   });
 }
 
-// Tab switching inside Leaderboard Modal
+// Tab switching inside Leaderboard Modal (Score Attack / Boss)
 if (lbTabScore) {
   lbTabScore.addEventListener('click', () => {
     currentLeaderboardTab = 'SCORE_ATTACK';
@@ -1215,19 +1390,23 @@ if (lbBossLvlPlusBtn) {
 // ==========================================
 
 function checkAndPromptRecordRegistration(mode, statValue, lvl = 1) {
+  const isMulti = !!window.isMultiplayerMode;
   pendingRecordToRegister = {
     mode: mode,
     value: statValue,
-    level: lvl
+    level: lvl,
+    category: isMulti ? 'multi' : 'solo'
   };
 
   if (recordModalTitle) {
-    recordModalTitle.innerText = (mode === 'BOSS') ? '👑 BOSS CLEAR RECORD!' : '🎉 SCORE ATTACK RECORD!';
+    recordModalTitle.innerText = (mode === 'BOSS') 
+      ? (isMulti ? '👑 MULTI BOSS CLEAR RECORD!' : '👑 BOSS CLEAR RECORD!')
+      : (isMulti ? '🎉 MULTI SCORE RECORD!' : '🎉 SCORE ATTACK RECORD!');
   }
   if (recordModalSubtitle) {
     recordModalSubtitle.innerText = (mode === 'BOSS')
-      ? `ボス (レベル${lvl}) のクリアタイムをオンライン共有！`
-      : 'オンラインリーダーボードにあなたのスコアを共有しよう！';
+      ? (isMulti ? `マルチボス (レベル${lvl}) のクリアタイムをオンライン共有！` : `ボス (レベル${lvl}) のクリアタイムをオンライン共有！`)
+      : (isMulti ? 'マルチプレイのスコアをオンラインリーダーボードに共有！' : 'オンラインリーダーボードにあなたのスコアを共有しよう！');
   }
   if (recordValLabel) {
     recordValLabel.innerText = (mode === 'BOSS') ? 'CLEAR TIME' : 'FINAL SCORE';
@@ -1236,10 +1415,15 @@ function checkAndPromptRecordRegistration(mode, statValue, lvl = 1) {
     recordValNum.innerText = (mode === 'BOSS') ? formatBattleTime(statValue) : statValue.toLocaleString();
   }
 
-  // Restore remembered nickname or default
-  const lastSavedName = localStorage.getItem('sa_player_name') || '';
+  // Restore remembered nickname or player's multi name
+  let defaultName = '';
+  if (isMulti && window.multiplayerManager?.myName) {
+    defaultName = window.multiplayerManager.myName;
+  } else {
+    defaultName = localStorage.getItem('sa_player_name') || '';
+  }
   if (playerNameInput) {
-    playerNameInput.value = lastSavedName;
+    playerNameInput.value = defaultName;
   }
 
   if (recordModal) recordModal.style.display = 'flex';
@@ -1262,6 +1446,8 @@ async function submitRecord() {
     score: pendingRecordToRegister.mode === 'SCORE_ATTACK' ? Math.round(pendingRecordToRegister.value) : 0,
     time: pendingRecordToRegister.mode === 'BOSS' ? pendingRecordToRegister.value : 0,
     level: pendingRecordToRegister.level || 1,
+    category: pendingRecordToRegister.category || 'solo',
+    isMulti: pendingRecordToRegister.category === 'multi',
     device: isMobilePlayer ? 'mobile' : 'pc',
     date: dateStr,
     timestamp: Date.now()
@@ -1279,7 +1465,7 @@ async function submitRecord() {
       // Fetch fresh data and show leaderboard
       setTimeout(async () => {
         await fetchOnlineLeaderboard();
-        openLeaderboardModal(payload.mode, payload.level || 1);
+        openLeaderboardModal(payload.mode, payload.level || 1, payload.category);
       }, 400);
       return;
     }
@@ -1301,7 +1487,7 @@ async function submitRecord() {
     showToast('✅ リーダーボードに登録完了！');
 
     setTimeout(() => {
-      openLeaderboardModal(payload.mode, payload.level || 1);
+      openLeaderboardModal(payload.mode, payload.level || 1, payload.category);
     }, 400);
   } catch (err) {
     console.warn('Failed to submit online record:', err);
@@ -3240,6 +3426,13 @@ function defeatBoss() {
       showToast('⚠️ 新たな敵（スナイパーシューター）が出現し始めた！');
     } else {
       // Boss Mode -> Show victory screen
+      if (window.isMultiplayerMode && window.multiplayerManager?.isHost) {
+        window.multiplayerManager._broadcast({
+          type: MP_MSG.GAME_OVER,
+          reason: 'boss_clear',
+          bossClearTime: bossBattleElapsedTime
+        });
+      }
       gameOver('VICTORY');
     }
   }, 1200);
@@ -3251,6 +3444,10 @@ function updateBossHUD() {
   const activeBoss = isClientMP ? window.multiplayerManager?.remoteGameObjects?.boss : boss;
   if (activeBoss && activeBoss.hp > 0) {
     bossHud.style.display = 'flex';
+    const bossNameEl = bossHud.querySelector('.boss-hud-name');
+    if (bossNameEl) {
+      bossNameEl.innerText = `👹 ボス (LV. ${bossLevel || 1})`;
+    }
     const hpPct = Math.max(0, (activeBoss.hp / activeBoss.maxHp) * 100);
     bossHpFill.style.width = hpPct + '%';
     bossHpVal.innerText = `${Math.ceil(activeBoss.hp)}/${activeBoss.maxHp}`;

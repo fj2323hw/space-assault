@@ -567,7 +567,7 @@ class MultiplayerManager {
   }
 
   // ── HOST: Create room ──────────────────────────────────
-  async createRoom(playerName, passcode, maxPlayers, gameMode) {
+  async createRoom(playerName, passcode, maxPlayers, gameMode, bossLevel = 1) {
     this.myName      = playerName;
     this.passcode    = passcode;
     this.maxPlayers  = maxPlayers;
@@ -575,6 +575,7 @@ class MultiplayerManager {
     this.isHost      = true;
     this.myColorIndex = 0;
     this.lobbyPlayers = [{ peerId: null, name: playerName, colorIndex: 0 }];
+    this.bossLevel   = bossLevel; // store boss level on manager
 
     try {
       // Generate a unique PeerJS ID from the passcode
@@ -591,6 +592,7 @@ class MultiplayerManager {
           hostPeerId:    this.peer.id,
           maxPlayers,
           gameMode,
+          bossLevel,
           status:        'waiting',
           createdAt:     firebase.firestore.FieldValue.serverTimestamp(),
           players:       [{ name: playerName, colorIndex: 0 }]
@@ -609,7 +611,7 @@ class MultiplayerManager {
   }
 
   // ── CLIENT: Join room ──────────────────────────────────
-  async joinRoom(playerName, passcode) {
+  async joinRoom(playerName, passcode, expectedMode = null) {
     this.myName   = playerName;
     this.passcode = passcode;
     this.isHost   = false;
@@ -631,9 +633,16 @@ class MultiplayerManager {
 
       const doc      = snap.docs[0];
       const roomData = doc.data();
+
+      if (expectedMode && roomData.gameMode && roomData.gameMode !== expectedMode) {
+        const modeName = (roomData.gameMode === 'BOSS') ? 'ボス戦' : 'スコアアタック';
+        return { success: false, error: `この部屋は【${modeName}】の部屋です` };
+      }
+
       this.roomDocId   = doc.id;
       this.hostPeerId  = roomData.hostPeerId;
       this.gameMode    = roomData.gameMode;
+      this.bossLevel   = roomData.bossLevel || 1;
       this.maxPlayers  = roomData.maxPlayers;
 
       await this._initPeer(); // Random ID
@@ -671,6 +680,7 @@ class MultiplayerManager {
     const payload = {
       type:         MP_MSG.GAME_START,
       gameMode:     this.gameMode,
+      bossLevel:    this.bossLevel || 1,
       playerCount:  count,
       hpMultiplier: count,
       players:      this.lobbyPlayers

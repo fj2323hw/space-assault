@@ -2118,10 +2118,7 @@
         <div class="menu-step-title">ゲームモード選択（作成）</div>
         <div class="menu-btn-group">
           <button class="menu-btn primary" id="multiCreateScoreBtn">⚡ スコアアタック</button>
-          <button class="menu-btn locked" id="multiCreateBossBtn" disabled>
-            <span>👹 ボス戦</span>
-            <span class="lock-badge">🔒</span>
-          </button>
+          <button class="menu-btn primary" id="multiCreateBossBtn">👹 ボス戦</button>
         </div>
         <button class="menu-back-link" id="backToMultiSubFromCreateBtn">← 戻る</button>
       </div>
@@ -2154,16 +2151,28 @@
         <button class="boss-start-btn" id="multiCreateRoomBtn" disabled style="margin-top:8px;">🏠 部屋を作成</button>
         <button class="menu-back-link" id="backToMultiCreateModeBtn">← 戻る</button>
       </div>
+<!-- Multi Step B2: Create — Boss Level Selection -->
+<div id="menuStepMultiBossCreate" class="menu-step" style="display: none;">
+  <div class="menu-step-title">ボス戦設定</div>
+  <div class="boss-config-card">
+    <div class="boss-config-title">👹 BOSS BATTLE</div>
+    <div class="boss-config-desc">挑戦するボスの難易度レベルを選択してください</div>
+    <div class="level-control-group">
+      <button class="lvl-btn" id="multiBossLvlMinusBtn" title="レベルを下げる">-</button>
+      <span class="lvl-badge" id="multiBossLvlText">レベル1</span>
+      <button class="lvl-btn" id="multiBossLvlPlusBtn" title="レベルを上げる">+</button>
+    </div>
+  </div>
+  <button class="boss-start-btn" id="multiBossStartBtn">⚔️ 出撃 (START)</button>
+  <button class="menu-back-link" id="backToMultiCreateFormBtn">← 戻る</button>
+</div>
 
       <!-- Multi Step C1: Join — Game Mode Selection -->
       <div id="menuStepMultiJoinMode" class="menu-step" style="display: none;">
         <div class="menu-step-title">ゲームモード選択（参加）</div>
         <div class="menu-btn-group">
           <button class="menu-btn primary" id="multiJoinScoreBtn">⚡ スコアアタック</button>
-          <button class="menu-btn locked" id="multiJoinBossBtn" disabled>
-            <span>👹 ボス戦</span>
-            <span class="lock-badge">🔒</span>
-          </button>
+          <button class="menu-btn primary" id="multiJoinBossBtn">👹 ボス戦</button>
         </div>
         <button class="menu-back-link" id="backToMultiSubFromJoinBtn">← 戻る</button>
       </div>
@@ -2191,7 +2200,18 @@
 
       <!-- Multi Step D: Waiting Room -->
       <div id="menuStepMultiWait" class="menu-step" style="display: none;">
-        <div class="menu-step-title">待機室</div>
+        <div class="menu-step-title" id="multiWaitTitle">待機室</div>
+
+        <!-- Boss Level Bar in Waiting Room (Shown in Boss Mode) -->
+        <div id="multiWaitBossLevelBar" class="boss-config-card" style="display: none; padding: 12px 18px; margin-bottom: 12px; width: 100%; max-width: 400px;">
+          <div style="font-size: 13px; font-weight: 800; color: #ff7b72; letter-spacing: 1px; margin-bottom: 8px; text-align: center;">👹 ボス難易度レベル</div>
+          <div class="level-control-group" style="justify-content: center;">
+            <button class="lvl-btn" id="multiWaitBossLvlMinusBtn" title="レベルを下げる">−</button>
+            <span class="lvl-badge" id="multiWaitBossLvlText">レベル1</span>
+            <button class="lvl-btn" id="multiWaitBossLvlPlusBtn" title="レベルを上げる">＋</button>
+          </div>
+        </div>
+
         <div class="multi-wait-card">
           <div class="multi-wait-title">
             <span>PLAYERS</span>
@@ -2231,6 +2251,12 @@
         <div class="lb-device-tabs">
           <button class="lb-device-tab active" id="lbDeviceTabPC">💻 PC版</button>
           <button class="lb-device-tab" id="lbDeviceTabMobile">📱 スマホ版</button>
+        </div>
+
+        <!-- Category Filter Tabs (Solo / Multi) -->
+        <div class="lb-category-tabs" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 8px;">
+          <button class="lb-device-tab active" id="lbCatTabSolo" style="padding: 6px 18px; font-size: 13px;">👤 ソロ部門</button>
+          <button class="lb-device-tab" id="lbCatTabMulti" style="padding: 6px 18px; font-size: 13px;">👥 マルチ部門</button>
         </div>
 
         <!-- Mode Tabs -->
