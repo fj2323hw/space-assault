@@ -139,6 +139,7 @@ const hpVal = document.getElementById('hpVal');
 const mpFill = document.getElementById('mpFill');
 const mpVal = document.getElementById('mpVal');
 const wpVal = document.getElementById('wpVal');
+const uepVal = document.getElementById('uepVal');
 
 // Joystick Elements
 const joystickContainer = document.getElementById('joystickContainer');
@@ -219,11 +220,11 @@ function switchToTouchMode() {
       guideText.innerHTML = `
         <div><span class="key">左下スティック</span>: 移動</div>
         <div><span class="key">画面ドラッグ</span>: 照準 & 射撃</div>
-        <div><span class="key">右下🎯</span>: 追尾弾 (MP 3 長押し)</div>
-        <div><span class="key">右下⚡</span>: ブリンク (MP 10)</div>
-        <div><span class="key">右下🛡️</span>: 無敵ガード (10 MP/s 長押し)</div>
-        <div><span class="key">右下🤖</span>: しょったー召喚 (WP 20 + MP 50)</div>
-        <div><span class="key">右下🔥</span>: 必殺技 (WP 100 + MP 100)</div>
+        <div><span class="key">右下🎯</span>: 追尾弾 (EP 3 長押し)</div>
+        <div><span class="key">右下⚡</span>: ブリンク (EP 10)</div>
+        <div><span class="key">右下🛡️</span>: 無敵ガード (10 EP/s 長押し)</div>
+        <div><span class="key">右下🤖</span>: しょったー召喚 (WP 20 + EP 50)</div>
+        <div><span class="key">右下🔥</span>: 必殺技 (WP 100 + EP 100)</div>
         <div style="margin-top: 3px; color: #f59e0b; font-size: 11px;">※必殺中ブリンクで「一刀両断(100dmg)」発動！</div>
       `;
     }
@@ -231,11 +232,11 @@ function switchToTouchMode() {
       startGuideList.innerHTML = `
         <div class="start-guide-item"><span>移動</span><span class="key">左下スティック</span></div>
         <div class="start-guide-item"><span>照準 & 射撃</span><span class="key">画面ドラッグ</span></div>
-        <div class="start-guide-item"><span>追尾弾</span><span class="key">右下🎯長押し (MP 3)</span></div>
-        <div class="start-guide-item"><span>高速ブリンク</span><span class="key">右下⚡ボタン (MP 10)</span></div>
-        <div class="start-guide-item"><span>無敵ガード</span><span class="key">右下🛡️長押し (10 MP/s)</span></div>
-        <div class="start-guide-item"><span>味方召喚</span><span class="key">右下🤖ボタン (WP 20 + MP 50)</span></div>
-        <div class="start-guide-item"><span>必殺技</span><span class="key">右下🔥ボタン (WP 100 + MP 100)</span></div>
+        <div class="start-guide-item"><span>追尾弾</span><span class="key">右下🎯長押し (EP 3)</span></div>
+        <div class="start-guide-item"><span>高速ブリンク</span><span class="key">右下⚡ボタン (EP 10)</span></div>
+        <div class="start-guide-item"><span>無敵ガード</span><span class="key">右下🛡️長押し (10 EP/s)</span></div>
+        <div class="start-guide-item"><span>味方召喚</span><span class="key">右下🤖ボタン (WP 20 + EP 50)</span></div>
+        <div class="start-guide-item"><span>必殺技</span><span class="key">右下🔥ボタン (WP 100 + EP 100)</span></div>
       `;
     }
   }
@@ -253,14 +254,14 @@ window.addEventListener('keydown', (e) => {
   if (k === 's' || e.key === 'ArrowDown') keys.s = true;
   if (k === 'd' || e.key === 'ArrowRight') keys.d = true;
 
-  // R triggers Ultimate Mode Toggle (WP 100 + MP 100)
+  // R triggers Ultimate Mode Toggle (WP 100 + EP 100)
   if (k === 'r') {
     if (gameState === 'PLAYING') {
       toggleUltimateMode();
     }
   }
 
-  // E triggers Summon Minion Skill (WP 10 + MP 50)
+  // E triggers Summon Minion Skill (WP 20 + EP 50)
   if (k === 'e') {
     if (gameState === 'PLAYING') {
       activateSummonSkill();
@@ -1555,31 +1556,32 @@ const player = {
   mp: 100,
   maxMp: 100,
   wp: 0, // Weapon Points (gained by defeating enemies)
-  mpRegenRate: 2.0, // 2 MP per second
+  uep: 0, // Ultra Energy Points (gained by defeating enemies, +1 HP & EP per 10 points)
+  mpRegenRate: 2.0, // 2 EP per second
   grazeRadius: 57,  // 1.5x larger graze ring (~3.2x size of player)
   grazeEffectTimer: 0,
   invincibleTimer: 0,
   color: '#58a6ff',
   glowColor: '#1f6feb',
 
-  // Skill 1: Blink Dash (MP 10)
+  // Skill 1: Blink Dash (EP 10)
   skillCost: 10,
   skillCooldown: 300,
   lastSkillTime: 0,
   isDashing: false,
   dashDuration: 0,
 
-  // Skill 2: Guard Barrier (10 MP per sec, hold to maintain, invincible while active)
+  // Skill 2: Guard Barrier (10 EP per sec, hold to maintain, invincible while active)
   isGuarding: false,
-  guardDrainRate: 10, // 10 MP per second
+  guardDrainRate: 10, // 10 EP per second
   guardRadius: 36,
 
-  // Skill 3: Homing Missile (MP 3, auto-target highest HP enemy, hold to fire)
+  // Skill 3: Homing Missile (EP 3, auto-target highest HP enemy, hold to fire)
   homingCost: 3,
   homingCooldown: 260,
   lastHomingTime: 0,
 
-  // Skill 4: Summon Minion (WP 20 + MP 50, Shoots bullets every 3s, HP 50, takes 20 dmg on hit)
+  // Skill 4: Summon Minion (WP 20 + EP 50, Shoots bullets every 3s, HP 50, takes 20 dmg on hit)
   summonWpCost: 20,
   summonMpCost: 50,
   summonCooldown: 1000,
@@ -1831,13 +1833,13 @@ class MpOrb {
     ctx.arc(0, 0, curRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // "MP" symbol inside
+    // "EP" symbol inside
     ctx.shadowBlur = 0;
     ctx.font = '900 10px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('MP', 0, 0);
+    ctx.fillText('EP', 0, 0);
 
     ctx.restore();
   }
@@ -2785,17 +2787,17 @@ function fireBullet() {
   }
 }
 
-// Fire Homing Missile (Skill 3: 260ms interval ~2x of normal, costs 3 MP)
+// Fire Homing Missile (Skill 3: 260ms interval ~2x of normal, costs 3 EP)
 function fireHomingBullet() {
   const now = performance.now();
   if (now - lastHomingShootTime < homingShootInterval) return;
 
-  // Check MP
+  // Check EP
   if (player.mp < player.homingCost) {
     return;
   }
 
-  // Consume 3 MP
+  // Consume 3 EP
   player.mp = Math.max(0, player.mp - player.homingCost);
   lastHomingShootTime = now;
   player.lastHomingTime = now;
@@ -3005,7 +3007,7 @@ class SlashEffect {
   }
 }
 
-// Toggle Ultimate Mode (Requires WP >= 100 and MP >= 100 to activate; can be deactivated anytime)
+// Toggle Ultimate Mode (Requires WP >= 100 and EP >= 100 to activate; can be deactivated anytime)
 function toggleUltimateMode() {
   if (gameState !== 'PLAYING') return;
 
@@ -3017,15 +3019,15 @@ function toggleUltimateMode() {
     }
     showToast('必殺モード 解除');
   } else {
-    // Check requirements: WP >= 100 and MP >= 100
+    // Check requirements: WP >= 100 and EP >= 100
     if (player.wp < 100 || player.mp < 100) {
       let reason = '';
       if (player.wp < 100 && player.mp < 100) {
-        reason = `WP(${player.wp}/100) & MP(${Math.floor(player.mp)}/100) 不足！`;
+        reason = `WP(${player.wp}/100) & EP(${Math.floor(player.mp)}/100) 不足！`;
       } else if (player.wp < 100) {
         reason = `WP 不足！ (${player.wp}/100)`;
       } else {
-        reason = `MP 不足！ (${Math.floor(player.mp)}/100)`;
+        reason = `EP 不足！ (${Math.floor(player.mp)}/100)`;
       }
       floatingTexts.push(new FloatingText(player.x, player.y - 30, reason, '#f85149'));
       showToast('⚠️ ' + reason);
@@ -3061,15 +3063,15 @@ function toggleUltimateMode() {
   }
 }
 
-// Trigger Skill: Blink Dash + Shockwave (Costs 10 MP) / Ultimate: 一刀両断 (100 WP + 100 MP)
+// Trigger Skill: Blink Dash + Shockwave (Costs 10 EP) / Ultimate: 一刀両断 (100 WP + 100 EP)
 function activateSkill() {
   const now = performance.now();
 
   // === ULTIMATE MODE: DASH ENHANCEMENT (一刀両断) ===
   if (isUltimateMode) {
-    // Check WP and MP requirements
+    // Check WP and EP requirements
     if (player.wp < 100 || player.mp < 100) {
-      floatingTexts.push(new FloatingText(player.x, player.y - 25, 'WP 100 & MP 100 が必要！', '#f85149'));
+      floatingTexts.push(new FloatingText(player.x, player.y - 25, 'WP 100 & EP 100 が必要！', '#f85149'));
       return;
     }
 
@@ -3101,7 +3103,7 @@ function activateSkill() {
       return;
     }
 
-    // Consume 100 WP and 100 MP
+    // Consume 100 WP and 100 EP
     player.wp -= 100;
     player.mp = Math.max(0, player.mp - 100);
     if (wpVal) wpVal.innerText = player.wp;
@@ -3218,6 +3220,7 @@ function activateSkill() {
           if (remIdx !== -1) targetEnemies.splice(remIdx, 1);
           addScore(isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500)));
           addWP(5);
+          addUEP(5);
         }
         window.multiplayerManager.reportBulletHit('enemy', target.id, 100);
       }
@@ -3236,6 +3239,7 @@ function activateSkill() {
           if (idx !== -1) enemies.splice(idx, 1);
           addScore(isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500)));
           addWP(5);
+          addUEP(5);
         }
       }
     }
@@ -3259,12 +3263,12 @@ function activateSkill() {
   }
 
   // === NORMAL DASH ===
-  // Check MP
+  // Check EP
   if (player.mp < player.skillCost) return;
   // Check Cooldown
   if (now - player.lastSkillTime < player.skillCooldown) return;
 
-  // Consume MP
+  // Consume EP
   player.mp = Math.max(0, player.mp - player.skillCost);
   player.lastSkillTime = now;
   player.isDashing = true;
@@ -3335,6 +3339,7 @@ function activateSkill() {
         remoteEnemies.splice(i, 1);
         addScore(150);
         addWP(1);
+        addUEP(1);
       }
     }
   } else {
@@ -3347,6 +3352,7 @@ function activateSkill() {
         enemies.splice(i, 1);
         addScore(150);
         addWP(1);
+        addUEP(1);
       }
     }
   }
@@ -3373,19 +3379,53 @@ function addWP(amount = 1) {
   if (wpVal) wpVal.innerText = player.wp;
 }
 
-// Trigger Skill 4: Summon Minion (Costs 20 WP + 50 MP)
+// Add UEP (Ultra Energy Points)
+// Gained by defeating enemies. Every 10 points threshold increases max HP and EP by 1 and heals 1 HP and EP.
+function addUEP(amount = 1) {
+  const prevBonusTier = Math.floor(player.uep / 10);
+  player.uep += amount;
+  const newBonusTier = Math.floor(player.uep / 10);
+
+  if (newBonusTier > prevBonusTier) {
+    const bonusGained = newBonusTier - prevBonusTier;
+    player.maxHp += bonusGained;
+    player.hp = Math.min(player.maxHp, player.hp + bonusGained);
+    player.maxMp += bonusGained;
+    player.mp = Math.min(player.maxMp, player.mp + bonusGained);
+
+    // Visual bonus notification & sparkle
+    floatingTexts.push(new FloatingText(player.x, player.y - 45, `✨ UEP UP! HP & EP +${bonusGained}`, '#e879f9'));
+    shockwaves.push(new Shockwave(player.x, player.y, 70, '#e879f9', 5));
+    for (let k = 0; k < 15; k++) {
+      const pAng = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 4 + 2;
+      particles.push(new Particle(
+        player.x, player.y,
+        Math.cos(pAng) * spd,
+        Math.sin(pAng) * spd,
+        Math.random() > 0.5 ? '#e879f9' : '#c084fc',
+        2.5,
+        20
+      ));
+    }
+  }
+
+  if (uepVal) uepVal.innerText = player.uep;
+}
+
+// Trigger Skill 4: Summon Minion (Costs 20 WP + 50 EP)
 function activateSummonSkill() {
   if (isUltimateMode) return;
   const now = performance.now();
-  // Check WP and MP
+  // Check WP and EP
   if (player.wp < player.summonWpCost || player.mp < player.summonMpCost) {
     let msg = '';
     if (player.wp < player.summonWpCost && player.mp < player.summonMpCost) {
-      msg = 'WP & MP 不足！';
+      msg = 'WP & EP 不足！';
     } else if (player.wp < player.summonWpCost) {
       msg = 'WP 不足 (要20)！';
     } else {
-      msg = 'MP 不足 (要50)！';
+      msg = 'EP 不足 (要50)！';
     }
     floatingTexts.push(new FloatingText(player.x, player.y - 25, msg, '#f85149'));
     return;
@@ -3394,7 +3434,7 @@ function activateSummonSkill() {
   // Check Cooldown
   if (now - player.lastSummonTime < player.summonCooldown) return;
 
-  // Consume WP and MP
+  // Consume WP and EP
   player.wp -= player.summonWpCost;
   player.mp -= player.summonMpCost;
   player.lastSummonTime = now;
@@ -3536,6 +3576,8 @@ function defeatBoss() {
   if (isScoreMode) {
     addScore(3000); // 3000 bonus points for defeating boss in Score Attack
   }
+  addWP(10);
+  addUEP(10);
 
   setTimeout(() => {
     boss = null;
@@ -3597,15 +3639,17 @@ function startGame(mode = 'SCORE_ATTACK') {
   if (statLabel) {
     statLabel.innerText = (gameMode === 'BOSS') ? 'TIME' : 'SCORE';
   }
-  player.hp = player.maxHp;
-  player.mp = player.maxMp;
-  player.wp = 0;
   player.isDown     = false;
   player.revivalProgress = 0;
   player.reviveCount = 0;
-  player.maxHp      = 100;  // Reset to base (may have been reduced by revival in previous game)
+  player.maxHp      = 100;  // Reset to base
   player.hp         = 100;
+  player.maxMp      = 100;  // Reset to base
+  player.mp         = 100;
+  player.wp         = 0;
+  player.uep        = 0;
   if (wpVal) wpVal.innerText = '0';
+  if (uepVal) uepVal.innerText = '0';
   player.x = canvas.width / 2;
   player.y = canvas.height * 0.75;
   player.vx = 0;
@@ -3744,7 +3788,7 @@ function updateHUD() {
     }
   }
 
-  // Update MP Gauge
+  // Update EP Gauge
   if (mpFill && mpVal) {
     const mpPct = Math.max(0, (player.mp / player.maxMp) * 100);
     mpFill.style.width = mpPct + '%';
@@ -3754,6 +3798,11 @@ function updateHUD() {
   // Update WP Display
   if (wpVal) {
     wpVal.innerText = player.wp;
+  }
+
+  // Update UEP Display
+  if (uepVal) {
+    uepVal.innerText = player.uep;
   }
 
   const now = performance.now();
@@ -4049,7 +4098,7 @@ function gameLoop(currentTime) {
       window.multiplayerManager.checkRevival(dt);
     }
 
-    // MP Natural Regeneration (2 MP / sec) - only when alive
+    // EP Natural Regeneration (2 EP / sec) - only when alive
     if (!player.isDown) {
       player.mp = Math.min(player.maxMp, player.mp + player.mpRegenRate * simDt);
     }
@@ -4136,14 +4185,14 @@ function gameLoop(currentTime) {
       if (player.dashDuration <= 0) player.isDashing = false;
     }
 
-    // Guard Skill Processing (Consumes 10 MP per second while held; provides complete barrier invincibility)
+    // Guard Skill Processing (Consumes 10 EP per second while held; provides complete barrier invincibility)
     if (isGuardHolding && player.mp > 0) {
       player.isGuarding = true;
       player.mp = Math.max(0, player.mp - player.guardDrainRate * dt);
       if (player.mp <= 0) {
         player.isGuarding = false;
         isGuardHolding = false;
-        floatingTexts.push(new FloatingText(player.x, player.y - 25, 'MP EMPTY', '#f85149'));
+        floatingTexts.push(new FloatingText(player.x, player.y - 25, 'EP EMPTY', '#f85149'));
       } else {
         if (Math.random() < 0.65) {
           spawnGuardSparkles();
@@ -4236,9 +4285,9 @@ function gameLoop(currentTime) {
       const distToPlayer = Math.hypot(player.x - orb.x, player.y - orb.y);
       if (distToPlayer < player.radius + orb.radius + 6) {
         mpOrbs.splice(i, 1);
-        // Recover 30 MP!
+        // Recover 30 EP!
         player.mp = Math.min(player.maxMp, player.mp + 30);
-        floatingTexts.push(new FloatingText(player.x, player.y - 36, '+30 MP', '#38bdf8'));
+        floatingTexts.push(new FloatingText(player.x, player.y - 36, '+30 EP', '#38bdf8'));
 
         // Beautiful blue energy shockwave & sparkles
         shockwaves.push(new Shockwave(player.x, player.y, 80, '#38bdf8', 6));
@@ -4275,13 +4324,13 @@ function gameLoop(currentTime) {
 
       const distToPlayer = Math.hypot(player.x - bb.x, player.y - bb.y);
 
-      // Graze boss bullet (gives MP +5)
+      // Graze boss bullet (gives EP +8)
       if (!bb.hasGrazed && distToPlayer < (player.grazeRadius + bb.radius) && distToPlayer >= (player.radius + bb.radius)) {
         bb.hasGrazed = true;
         player.mp = Math.min(player.maxMp, player.mp + 8);
         player.grazeEffectTimer = 16;
         addScore(50);
-        floatingTexts.push(new FloatingText(player.x, player.y - 28, '+8 MP', '#58a6ff'));
+        floatingTexts.push(new FloatingText(player.x, player.y - 28, '+8 EP', '#58a6ff'));
 
         for (let k = 0; k < 5; k++) {
           const sparkAngle = Math.random() * Math.PI * 2;
@@ -4463,6 +4512,7 @@ function gameLoop(currentTime) {
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4501,6 +4551,7 @@ function gameLoop(currentTime) {
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4515,7 +4566,7 @@ function gameLoop(currentTime) {
           re.hasGrazed = true;
           player.mp = Math.min(player.maxMp, player.mp + 10);
           player.grazeEffectTimer = 16;
-          floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 MP', '#58a6ff'));
+          floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 EP', '#58a6ff'));
           for (let k = 0; k < 6; k++) {
             const sparkAngle = Math.random() * Math.PI * 2;
             particles.push(new Particle(
@@ -4549,6 +4600,7 @@ function gameLoop(currentTime) {
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4568,6 +4620,7 @@ function gameLoop(currentTime) {
             window.multiplayerManager.reportBulletHit('enemy', re.id, 5);
             remoteEnemies.splice(i, 1);
             addWP(isHeavy ? 3 : 1);
+            addUEP(isHeavy ? 3 : 1);
           } else if (player.isGuarding) {
             re.hp -= 1;
             window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
@@ -4576,12 +4629,14 @@ function gameLoop(currentTime) {
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
             }
           } else {
             const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
             createExplosion(re.x, re.y, expColor, isHeavy);
             remoteEnemies.splice(i, 1);
             addWP(isHeavy ? 3 : 1);
+            addUEP(isHeavy ? 3 : 1);
             takeDamage();
           }
         }
@@ -4634,6 +4689,7 @@ function gameLoop(currentTime) {
               enemies.splice(i, 1);
               addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4671,6 +4727,7 @@ function gameLoop(currentTime) {
               enemies.splice(i, 1);
               addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4688,7 +4745,7 @@ function gameLoop(currentTime) {
           player.mp = Math.min(player.maxMp, player.mp + 10);
           player.grazeEffectTimer = 16;
           addScore(30);
-          floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 MP', '#58a6ff'));
+          floatingTexts.push(new FloatingText(player.x, player.y - 28, '+10 EP', '#58a6ff'));
 
           // Graze Sparks
           for (let k = 0; k < 6; k++) {
@@ -4730,6 +4787,7 @@ function gameLoop(currentTime) {
               enemies.splice(i, 1);
               addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
             }
@@ -4750,6 +4808,7 @@ function gameLoop(currentTime) {
             enemies.splice(i, 1);
             addScore(isHeavy ? 350 : (isShooter ? 200 : (isChaser ? 250 : 150)));
             addWP(isHeavy ? 3 : 1);
+            addUEP(isHeavy ? 3 : 1);
           } else if (player.isGuarding) {
             // Barrier knocks back / damages enemy and blocks all damage to player!
             e.hp -= 1;
@@ -4770,6 +4829,7 @@ function gameLoop(currentTime) {
               enemies.splice(i, 1);
               addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
+              addUEP(isHeavy ? 3 : 1);
             }
           } else {
             // Take Damage (20 HP loss)
@@ -4777,6 +4837,7 @@ function gameLoop(currentTime) {
             createExplosion(e.x, e.y, expColor, isHeavy);
             enemies.splice(i, 1);
             addWP(isHeavy ? 3 : 1);
+            addUEP(isHeavy ? 3 : 1);
             takeDamage();
           }
         }
@@ -4794,7 +4855,7 @@ function gameLoop(currentTime) {
         player.mp = Math.min(player.maxMp, player.mp + 15);
         player.grazeEffectTimer = 16;
         addScore(100);
-        floatingTexts.push(new FloatingText(player.x, player.y - 32, '+15 MP', '#ffd33d'));
+        floatingTexts.push(new FloatingText(player.x, player.y - 32, '+15 EP', '#ffd33d'));
       }
 
       // Touch Boss body

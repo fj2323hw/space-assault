@@ -95,7 +95,8 @@
       text-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
     }
 
-    .mp-text {
+    .mp-text,
+    .ep-text {
       color: #58a6ff;
       text-shadow: 0 0 8px rgba(88, 166, 255, 0.6);
     }
@@ -126,7 +127,8 @@
       box-shadow: 0 0 8px rgba(248, 81, 73, 0.8);
     }
 
-    .mp-fill {
+    .mp-fill,
+    .ep-fill {
       background: linear-gradient(90deg, #1f6feb, #58a6ff);
       box-shadow: 0 0 8px rgba(88, 166, 255, 0.6);
     }
@@ -231,6 +233,19 @@
       font-size: 13px;
       font-weight: 800;
       color: #facc15;
+      font-family: monospace;
+      letter-spacing: 0.5px;
+    }
+
+    .uep-text {
+      color: #c084fc;
+      text-shadow: 0 0 8px rgba(192, 132, 252, 0.6);
+    }
+
+    .uep-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: #e879f9;
       font-family: monospace;
       letter-spacing: 0.5px;
     }
@@ -628,10 +643,12 @@
       border-color: rgba(245, 158, 11, 0.5);
     }
 
-    /* Out of MP / WP State */
+    /* Out of MP / EP / WP State */
     .skill-slot.no-mp,
+    .skill-slot.no-ep,
     .skill-slot.no-cost,
     .touch-action-btn.no-mp,
+    .touch-action-btn.no-ep,
     .touch-action-btn.no-cost {
       opacity: 0.4;
       filter: grayscale(80%);
@@ -1864,7 +1881,7 @@
     <!-- Ultimate Mode Screen Flash -->
     <div id="ultScreenFlash"></div>
 
-    <!-- Top Stats Bar (HP & MP Gauges + Score) -->
+    <!-- Top Stats Bar (HP & EP Gauges + Score) -->
     <div class="top-stats-bar">
       <div class="bars-container">
         <!-- HP Bar -->
@@ -1875,18 +1892,24 @@
           </div>
           <span class="bar-val" id="hpVal">100/100</span>
         </div>
-        <!-- MP Bar -->
+        <!-- EP Bar -->
         <div class="bar-row">
-          <span class="bar-label mp-text">MP</span>
+          <span class="bar-label ep-text">EP</span>
           <div class="bar-track">
-            <div class="bar-fill mp-fill" id="mpFill"></div>
+            <div class="bar-fill ep-fill" id="mpFill"></div>
           </div>
           <span class="bar-val" id="mpVal">100/100</span>
         </div>
-        <!-- WP Display -->
-        <div class="bar-row" style="margin-top: 1px;">
-          <span class="bar-label wp-text">WP</span>
-          <span class="wp-badge" id="wpVal">0</span>
+        <!-- WP & UEP Display -->
+        <div class="bar-row" style="margin-top: 1px; gap: 14px;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="bar-label wp-text">WP</span>
+            <span class="wp-badge" id="wpVal">0</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span class="bar-label uep-text" style="width: auto;">UEP</span>
+            <span class="uep-badge" id="uepVal">0</span>
+          </div>
         </div>
       </div>
       <div class="score-container" id="statContainer">
@@ -1926,11 +1949,11 @@
         <div class="key-guide" id="guideText">
           <div><span class="key">WASD</span>: 移動</div>
           <div><span class="key">左クリック</span>: 弾を撃つ</div>
-          <div><span class="key">Q (長押し)</span>: 追尾弾 (MP 3)</div>
-          <div><span class="key">右クリック</span>: ブリンク (MP 10)</div>
-          <div><span class="key">SPACE (長押し)</span>: ガード (10 MP/s 無敵)</div>
-          <div><span class="key">E</span>: しょったー召喚 (WP 20 + MP 50)</div>
-          <div><span class="key">R</span>: 必殺モード (WP 100 + MP 100)</div>
+          <div><span class="key">Q (長押し)</span>: 追尾弾 (EP 3)</div>
+          <div><span class="key">右クリック</span>: ブリンク (EP 10)</div>
+          <div><span class="key">SPACE (長押し)</span>: ガード (10 EP/s 無敵)</div>
+          <div><span class="key">E</span>: しょったー召喚 (WP 20 + EP 50)</div>
+          <div><span class="key">R</span>: 必殺モード (WP 100 + EP 100)</div>
           <div style="margin-top: 3px; color: #f59e0b; font-size: 11px;">※必殺中ブリンクで「一刀両断(100dmg)」発動！</div>
         </div>
       </div>
@@ -1941,7 +1964,7 @@
       <!-- Ultimate Toggle Button -->
       <button class="ult-btn" id="ultBtn">
         <span>🔥 必殺技 [R]</span>
-        <span style="font-size: 9px; opacity: 0.85;">(WP100/MP100)</span>
+        <span style="font-size: 9px; opacity: 0.85;">(WP100/EP100)</span>
       </button>
 
       <div class="skill-slots-grid">
@@ -1949,7 +1972,7 @@
         <div class="skill-slot ready-pulse" id="homingSlot" style="border-color: #38bdf8; box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);">
           <div class="cooldown-overlay" id="homingCooldownOverlay"></div>
           <div class="skill-icon">🎯</div>
-          <div class="skill-cost-tag" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.5);">MP 3</div>
+          <div class="skill-cost-tag" style="color: #38bdf8; border-color: rgba(56, 189, 248, 0.5);">EP 3</div>
           <div class="skill-key-badge">Q (長押し)</div>
           <div class="cooldown-text" id="homingCooldownText">0.3</div>
         </div>
@@ -1958,7 +1981,7 @@
         <div class="skill-slot ready-pulse" id="skillSlot">
           <div class="cooldown-overlay" id="cooldownOverlay"></div>
           <div class="skill-icon">⚡</div>
-          <div class="skill-cost-tag">MP 10</div>
+          <div class="skill-cost-tag">EP 10</div>
           <div class="skill-key-badge">右クリック</div>
           <div class="cooldown-text" id="cooldownText">1.5</div>
         </div>
@@ -1967,7 +1990,7 @@
         <div class="skill-slot bomb-slot ready-pulse" id="bombSlot">
           <div class="cooldown-overlay" id="bombCooldownOverlay"></div>
           <div class="skill-icon">🛡️</div>
-          <div class="skill-cost-tag" style="color: #a7f3d0; border-color: rgba(16, 185, 129, 0.5);">10 MP/s</div>
+          <div class="skill-cost-tag" style="color: #a7f3d0; border-color: rgba(16, 185, 129, 0.5);">10 EP/s</div>
           <div class="skill-key-badge">SPACE (長押し)</div>
           <div class="cooldown-text" id="bombCooldownText">0.0</div>
         </div>
@@ -1976,7 +1999,7 @@
         <div class="skill-slot summon-slot ready-pulse" id="summonSlot">
           <div class="cooldown-overlay" id="summonCooldownOverlay"></div>
           <div class="skill-icon">🤖</div>
-          <div class="skill-cost-tag" style="color: #c084fc; border-color: rgba(192, 132, 252, 0.5);">WP20 MP50</div>
+          <div class="skill-cost-tag" style="color: #c084fc; border-color: rgba(192, 132, 252, 0.5);">WP20 EP50</div>
           <div class="skill-key-badge">E</div>
           <div class="cooldown-text" id="summonCooldownText">1.0</div>
         </div>
@@ -2005,7 +2028,7 @@
         <div class="touch-action-btn bomb-btn" id="touchBombBtn">
           <div class="cooldown-overlay" id="touchBombCooldownOverlay"></div>
           <div class="touch-btn-icon">🛡️</div>
-          <div class="touch-skill-cost" style="color: #a7f3d0; border-color: rgba(16, 185, 129, 0.6);">10 MP/s</div>
+          <div class="touch-skill-cost" style="color: #a7f3d0; border-color: rgba(16, 185, 129, 0.6);">10 EP/s</div>
           <div class="touch-skill-cooldown-text" id="touchBombCooldownText">0.0</div>
         </div>
 
@@ -2013,7 +2036,7 @@
         <div class="touch-action-btn summon-btn" id="touchSummonBtn">
           <div class="cooldown-overlay" id="touchSummonCooldownOverlay"></div>
           <div class="touch-btn-icon">🤖</div>
-          <div class="touch-skill-cost" style="color: #f0abfc; border-color: rgba(192, 132, 252, 0.6);">WP20 MP50</div>
+          <div class="touch-skill-cost" style="color: #f0abfc; border-color: rgba(192, 132, 252, 0.6);">WP20 EP50</div>
           <div class="touch-skill-cooldown-text" id="touchSummonCooldownText">1.0</div>
         </div>
 
@@ -2021,7 +2044,7 @@
         <div class="touch-action-btn homing-btn" id="touchHomingBtn">
           <div class="cooldown-overlay" id="touchHomingCooldownOverlay"></div>
           <div class="touch-btn-icon">🎯</div>
-          <div class="touch-skill-cost" style="color: #e0f2fe; border-color: rgba(56, 189, 248, 0.6);">MP 3</div>
+          <div class="touch-skill-cost" style="color: #e0f2fe; border-color: rgba(56, 189, 248, 0.6);">EP 3</div>
           <div class="touch-skill-cooldown-text" id="touchHomingCooldownText">0.3</div>
         </div>
 
@@ -2029,7 +2052,7 @@
         <div class="touch-action-btn blink-btn" id="touchSkillBtn">
           <div class="cooldown-overlay" id="touchCooldownOverlay"></div>
           <div class="touch-btn-icon">⚡</div>
-          <div class="touch-skill-cost">MP 10</div>
+          <div class="touch-skill-cost">EP 10</div>
           <div class="touch-skill-cooldown-text" id="touchCooldownText">1.5</div>
         </div>
       </div>
@@ -2047,14 +2070,14 @@
           <div class="start-guide-list" id="startGuideList">
             <div class="start-guide-item"><span>移動</span><span class="key">WASD / 矢印キー</span></div>
             <div class="start-guide-item"><span>ショット (射撃)</span><span class="key">マウス左クリック (長押し連射)</span></div>
-            <div class="start-guide-item"><span>追尾弾 (スキル)</span><span class="key">Qキー長押し (MP 3)</span></div>
-            <div class="start-guide-item"><span>高速ブリンク</span><span class="key">マウス右クリック (MP 10)</span></div>
-            <div class="start-guide-item"><span>無敵ガード</span><span class="key">SPACE / B長押し (10 MP/s)</span></div>
-            <div class="start-guide-item"><span>味方召喚</span><span class="key">Eキー (WP 20 + MP 50)</span></div>
-            <div class="start-guide-item"><span>必殺技モード</span><span class="key">Rキー (WP 100 + MP 100)</span></div>
+            <div class="start-guide-item"><span>追尾弾 (スキル)</span><span class="key">Qキー長押し (EP 3)</span></div>
+            <div class="start-guide-item"><span>高速ブリンク</span><span class="key">マウス右クリック (EP 10)</span></div>
+            <div class="start-guide-item"><span>無敵ガード</span><span class="key">SPACE / B長押し (10 EP/s)</span></div>
+            <div class="start-guide-item"><span>味方召喚</span><span class="key">Eキー (WP 20 + EP 50)</span></div>
+            <div class="start-guide-item"><span>必殺技モード</span><span class="key">Rキー (WP 100 + EP 100)</span></div>
           </div>
           <div class="start-tip">
-            💡 <strong>必殺モード:</strong> WP100とMP100で<strong>必殺技モード[R]</strong>に突入！ ブリンク発動で最高HPの敵の背後へワープして<strong>一刀両断(100ダメージ)</strong>！
+            💡 <strong>必殺モード:</strong> WP100とEP100で<strong>必殺技モード[R]</strong>に突入！ ブリンク発動で最高HPの敵の背後へワープして<strong>一刀両断(100ダメージ)</strong>！
           </div>
         </div>
         <button class="start-btn" id="startBtn">▶ 始める</button>

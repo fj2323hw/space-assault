@@ -1108,6 +1108,7 @@ class MultiplayerManager {
             }
             if (typeof addScore === 'function') addScore(e.type === 'large' ? 300 : (e.type === 'shooter' ? 150 : (e.type === 'chaser' ? 200 : 100)));
             if (typeof addWP    === 'function' && fromPeerId === '__self_host__') addWP(e.type === 'large' ? 3 : 1);
+            if (typeof addUEP   === 'function' && fromPeerId === '__self_host__') addUEP(e.type === 'large' ? 3 : 1);
             if (enemyIdx !== -1) {
               enemies.splice(enemyIdx, 1);
             }
