@@ -703,6 +703,7 @@ function initMultiplayerUI() {
   multiJoinRoomBtn           = document.getElementById('multiJoinRoomBtn');
   multiJoinError             = document.getElementById('multiJoinError');
   multiJoinConnecting        = document.getElementById('multiJoinConnecting');
+  backToMultiJoinModeBtn     = document.getElementById('backToMultiJoinModeBtn');
   menuStepMultiBossCreate    = document.getElementById('menuStepMultiBossCreate');
   backToMultiCreateFormBtn   = document.getElementById('backToMultiCreateFormBtn');
   multiBossLvlMinusBtn       = document.getElementById('multiBossLvlMinusBtn');
@@ -798,11 +799,21 @@ function initMultiplayerUI() {
   addMenuBtnListeners(backToMultiCreateModeBtn, () => {
     showMenuStep('multiCreateMode');
     _pendingMultiMode = 'SCORE_ATTACK';
+    if (multiCreateError) {
+      multiCreateError.innerText = '';
+      multiCreateError.classList.remove('visible');
+    }
+    if (multiCreateConnecting) multiCreateConnecting.style.display = 'none';
   });
 
   addMenuBtnListeners(backToMultiJoinModeBtn, () => {
     showMenuStep('multiJoinMode');
     _pendingMultiMode = 'SCORE_ATTACK';
+    if (multiJoinError) {
+      multiJoinError.innerText = '';
+      multiJoinError.classList.remove('visible');
+    }
+    if (multiJoinConnecting) multiJoinConnecting.style.display = 'none';
   });
 
   // Player count +/- buttons
