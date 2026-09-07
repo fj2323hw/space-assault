@@ -344,6 +344,38 @@ class RemoteEnemy {
       ctx.beginPath();
       ctx.arc(0, 0, this.radius * 0.35, 0, Math.PI * 2);
       ctx.fill();
+    } else if (this.type === 'chaser') {
+      // Remote Chaser Enemy
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur  = this.radius * 0.7;
+
+      ctx.fillStyle   = '#451a03';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth   = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(this.radius * 1.2, 0);
+      ctx.lineTo(-this.radius * 0.9, -this.radius * 0.9);
+      ctx.lineTo(-this.radius * 0.4, 0);
+      ctx.lineTo(-this.radius * 0.9, this.radius * 0.9);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.shadowBlur = 8;
+      ctx.fillStyle  = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.1, 0, this.radius * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur  = 12;
+      ctx.shadowColor = '#ef4444';
+      ctx.fillStyle   = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(-this.radius * 0.4, -3);
+      ctx.lineTo(-this.radius * 0.8 - Math.random() * 5, 0);
+      ctx.lineTo(-this.radius * 0.4, 3);
+      ctx.closePath();
+      ctx.fill();
     } else {
       ctx.shadowColor = '#ff2222';
       ctx.shadowBlur  = this.radius * 0.7;
@@ -364,7 +396,7 @@ class RemoteEnemy {
 
     ctx.restore();
 
-    // HP bar for large/shooter
+    // HP bar for large/shooter/chaser
     if (this.maxHp > 2) {
       const bw = this.radius * 1.25;
       const bh = Math.max(4, this.radius * 0.13);
@@ -372,7 +404,7 @@ class RemoteEnemy {
       const bx = this.x - bw / 2;
       ctx.fillStyle = 'rgba(0,0,0,0.7)';
       ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = this.type === 'large' ? '#ff2a6d' : '#a855f7';
+      ctx.fillStyle = this.type === 'large' ? '#ff2a6d' : (this.type === 'chaser' ? '#f59e0b' : '#a855f7');
       ctx.fillRect(bx, by, bw * Math.max(0, this.hp / this.maxHp), bh);
     }
   }
@@ -1071,10 +1103,10 @@ class MultiplayerManager {
           e.hp -= (data.amount || 1);
           if (e.hp <= 0) {
             if (typeof createExplosion === 'function') {
-              const col = e.type === 'large' ? '#ff2a6d' : (e.type === 'shooter' ? '#a855f7' : '#ff5555');
+              const col = e.type === 'large' ? '#ff2a6d' : (e.type === 'shooter' ? '#a855f7' : (e.type === 'chaser' ? '#f59e0b' : '#ff5555'));
               createExplosion(e.x, e.y, col, e.type === 'large');
             }
-            if (typeof addScore === 'function') addScore(e.type === 'large' ? 300 : e.type === 'shooter' ? 150 : 100);
+            if (typeof addScore === 'function') addScore(e.type === 'large' ? 300 : (e.type === 'shooter' ? 150 : (e.type === 'chaser' ? 200 : 100)));
             if (typeof addWP    === 'function' && fromPeerId === '__self_host__') addWP(e.type === 'large' ? 3 : 1);
             if (enemyIdx !== -1) {
               enemies.splice(enemyIdx, 1);

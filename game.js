@@ -2070,6 +2070,15 @@ class Enemy {
       this.rotSpeed = (Math.random() - 0.5) * 0.04;
       this.hasShot = false;
       this.shootDelay = 70 + Math.floor(Math.random() * 30); // ~1.1 to 1.6 seconds after spawn
+    } else if (type === 'chaser') {
+      // New Enemy (Chaser / 追尾敵): radius 19, 3 HP, gently steers/homes towards player position
+      this.radius = 19 * scale;
+      this.hp = Math.ceil(3 * (window.multiHpMult || 1));
+      this.maxHp = this.hp;
+      this.color = '#f59e0b'; // Neon amber / orange
+      this.rotSpeed = 0;
+      this.speed = Math.hypot(vx, vy);
+      this.turnRate = 0.028; // Subtle / gentle homing turn rate
     } else {
       // Normal Enemy: radius 17 (Mobile) / 34 (PC), 2 HP
       this.radius = 17 * scale;
@@ -2081,9 +2090,48 @@ class Enemy {
   }
 
   update() {
+    if (this.type === 'chaser') {
+      // In multiplayer, target a live player; in solo, target player
+      let targetX = player.x, targetY = player.y;
+      if (window.isMultiplayerMode && window.multiplayerManager) {
+        const targets = window.multiplayerManager.getAliveTargets();
+        if (targets.length > 0) {
+          let closestDist = Infinity;
+          for (const t of targets) {
+            const d = Math.hypot(t.x - this.x, t.y - this.y);
+            if (d < closestDist) {
+              closestDist = d;
+              targetX = t.x;
+              targetY = t.y;
+            }
+          }
+        }
+      }
+
+      const dx = targetX - this.x;
+      const dy = targetY - this.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist > 5) {
+        const targetAngle = Math.atan2(dy, dx);
+        const currentAngle = Math.atan2(this.vy, this.vx);
+        let diff = targetAngle - currentAngle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+
+        const steer = Math.sign(diff) * Math.min(Math.abs(diff), this.turnRate * timeScale);
+        const newAngle = currentAngle + steer;
+        const currentSpeed = Math.hypot(this.vx, this.vy) || this.speed || 3.0;
+        this.vx = Math.cos(newAngle) * currentSpeed;
+        this.vy = Math.sin(newAngle) * currentSpeed;
+        this.angle = newAngle;
+      }
+    }
+
     this.x += this.vx * timeScale;
     this.y += this.vy * timeScale;
-    this.angle += this.rotSpeed * timeScale;
+    if (this.type !== 'chaser') {
+      this.angle += this.rotSpeed * timeScale;
+    }
 
     // Shooter Enemy: Fire 1 aimed bullet towards player
     if (this.type === 'shooter' && !this.hasShot) {
@@ -2096,8 +2144,16 @@ class Enemy {
   }
 
   fireAimedBullet() {
-    const dx = player.x - this.x;
-    const dy = player.y - this.y;
+    let targetX = player.x, targetY = player.y;
+    if (window.isMultiplayerMode && window.multiplayerManager) {
+      const targets = window.multiplayerManager.getAliveTargets();
+      if (targets.length > 0) {
+        const t = targets[Math.floor(Math.random() * targets.length)];
+        targetX = t.x; targetY = t.y;
+      }
+    }
+    const dx = targetX - this.x;
+    const dy = targetY - this.y;
     const dist = Math.hypot(dx, dy);
 
     let dirX = 0;
@@ -2224,6 +2280,60 @@ class Enemy {
       ctx.fillRect(-barW / 2, barY, barW, barH);
       const hpPct = Math.max(0, this.hp / this.maxHp);
       ctx.fillStyle = '#a855f7';
+      ctx.fillRect(-barW / 2, barY, barW * hpPct, barH);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-barW / 2, barY, barW, barH);
+
+    } else if (this.type === 'chaser') {
+      // Chaser Enemy (Stealth Arrowhead Fighter, always facing movement direction)
+      ctx.save();
+      ctx.rotate(this.angle);
+
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = this.radius * 0.7;
+
+      // Outer Arrowhead Hull
+      ctx.fillStyle = '#451a03';
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2.2;
+      ctx.beginPath();
+      ctx.moveTo(this.radius * 1.2, 0);                 // Nose
+      ctx.lineTo(-this.radius * 0.9, -this.radius * 0.9); // Top wingtip
+      ctx.lineTo(-this.radius * 0.4, 0);                 // Engine notch
+      ctx.lineTo(-this.radius * 0.9, this.radius * 0.9);  // Bottom wingtip
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing Core Eye
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.arc(this.radius * 0.1, 0, this.radius * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Thruster flame effect
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = '#ef4444';
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(-this.radius * 0.4, -3);
+      ctx.lineTo(-this.radius * 0.8 - Math.random() * 5, 0);
+      ctx.lineTo(-this.radius * 0.4, 3);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.restore();
+
+      // Mini HP Bar above head
+      const barW = this.radius * 1.2;
+      const barH = 4;
+      const barY = -this.radius - (barH + 5);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(-barW / 2, barY, barW, barH);
+      const hpPct = Math.max(0, this.hp / this.maxHp);
+      ctx.fillStyle = '#f59e0b';
       ctx.fillRect(-barW / 2, barY, barW * hpPct, barH);
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
       ctx.lineWidth = 1;
@@ -2619,7 +2729,11 @@ function spawnEnemy() {
   }
 
   let chosenType = 'normal';
-  if (scoreBossDefeated && Math.random() < 0.28) {
+  if (scoreBossDefeated && Math.random() < 0.25) {
+    // Unlocked after defeating Score Attack Boss: Homing Chaser enemy!
+    chosenType = 'chaser';
+  } else if (Math.random() < 0.18) {
+    // Shooter spawns from the very beginning now!
     chosenType = 'shooter';
   } else if (isLarge) {
     chosenType = 'large';
@@ -3097,11 +3211,12 @@ function activateSkill() {
         if (target.hp <= 0) {
           const isHeavy = target.type === 'large';
           const isShooter = target.type === 'shooter';
-          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ffd33d');
+          const isChaser = target.type === 'chaser';
+          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ffd33d'));
           createExplosion(target.x, target.y, expColor, true);
           const remIdx = targetEnemies.indexOf(target);
           if (remIdx !== -1) targetEnemies.splice(remIdx, 1);
-          addScore(isHeavy ? 1000 : (isShooter ? 600 : 500));
+          addScore(isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500)));
           addWP(5);
         }
         window.multiplayerManager.reportBulletHit('enemy', target.id, 100);
@@ -3114,11 +3229,12 @@ function activateSkill() {
         if (target.hp <= 0) {
           const isHeavy = target.type === 'large';
           const isShooter = target.type === 'shooter';
-          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ffd33d');
+          const isChaser = target.type === 'chaser';
+          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ffd33d'));
           createExplosion(target.x, target.y, expColor, true);
           const idx = enemies.indexOf(target);
           if (idx !== -1) enemies.splice(idx, 1);
-          addScore(isHeavy ? 1000 : (isShooter ? 600 : 500));
+          addScore(isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500)));
           addWP(5);
         }
       }
@@ -3433,10 +3549,10 @@ function defeatBoss() {
     enemies.length = 0;
 
     if (isScoreMode) {
-      // Score Attack continues! Unlock Shooter enemies & resume spawns
+      // Score Attack continues! Unlock Homing Chaser enemies & resume spawns
       scoreBossDefeated = true;
       lastEnemySpawnTime = performance.now();
-      showToast('⚠️ 新たな敵（スナイパーシューター）が出現し始めた！');
+      showToast('⚠️ 新たな強敵（追尾チェイサー）が出現し始めた！');
     } else {
       // Boss Mode -> Show victory screen
       if (window.isMultiplayerMode && window.multiplayerManager?.isHost) {
@@ -4342,7 +4458,8 @@ function gameLoop(currentTime) {
             if (re.hp <= 0) {
               const isHeavy = re.type === 'large';
               const isShooter = re.type === 'shooter';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+              const isChaser = re.type === 'chaser';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
@@ -4379,7 +4496,8 @@ function gameLoop(currentTime) {
             if (re.hp <= 0) {
               const isHeavy = re.type === 'large';
               const isShooter = re.type === 'shooter';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#38bdf8');
+              const isChaser = re.type === 'chaser';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8'));
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
@@ -4426,7 +4544,8 @@ function gameLoop(currentTime) {
             if (re.hp <= 0) {
               const isHeavy = re.type === 'large';
               const isShooter = re.type === 'shooter';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#c084fc');
+              const isChaser = re.type === 'chaser';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#c084fc'));
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
@@ -4442,8 +4561,9 @@ function gameLoop(currentTime) {
         if (distToPlayer < player.radius + re.radius) {
           const isHeavy = re.type === 'large';
           const isShooter = re.type === 'shooter';
+          const isChaser = re.type === 'chaser';
           if (player.isDashing) {
-            const expColor = isShooter ? '#a855f7' : '#38bdf8';
+            const expColor = isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8');
             createExplosion(re.x, re.y, expColor, isHeavy);
             window.multiplayerManager.reportBulletHit('enemy', re.id, 5);
             remoteEnemies.splice(i, 1);
@@ -4452,13 +4572,13 @@ function gameLoop(currentTime) {
             re.hp -= 1;
             window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
             if (re.hp <= 0) {
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#34d399');
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#34d399'));
               createExplosion(re.x, re.y, expColor, isHeavy);
               remoteEnemies.splice(i, 1);
               addWP(isHeavy ? 3 : 1);
             }
           } else {
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
             createExplosion(re.x, re.y, expColor, isHeavy);
             remoteEnemies.splice(i, 1);
             addWP(isHeavy ? 3 : 1);
@@ -4508,10 +4628,11 @@ function gameLoop(currentTime) {
             if (e.hp <= 0) {
               const isHeavy = e.type === 'large';
               const isShooter = e.type === 'shooter';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+              const isChaser = e.type === 'chaser';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
               createExplosion(e.x, e.y, expColor, isHeavy);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
@@ -4544,10 +4665,11 @@ function gameLoop(currentTime) {
             if (e.hp <= 0) {
               const isHeavy = e.type === 'large';
               const isShooter = e.type === 'shooter';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#38bdf8');
+              const isChaser = e.type === 'chaser';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8'));
               createExplosion(e.x, e.y, expColor, isHeavy);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
@@ -4602,10 +4724,11 @@ function gameLoop(currentTime) {
             if (e.hp <= 0) {
               const isHeavy = e.type === 'large';
               const isShooter = e.type === 'shooter';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#c084fc');
+              const isChaser = e.type === 'chaser';
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#c084fc'));
               createExplosion(e.x, e.y, expColor, isHeavy);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
               enemyDestroyed = true;
               break;
@@ -4619,12 +4742,13 @@ function gameLoop(currentTime) {
         if (distToPlayer < player.radius + e.radius) {
           const isHeavy = e.type === 'large';
           const isShooter = e.type === 'shooter';
+          const isChaser = e.type === 'chaser';
           if (player.isDashing) {
             // Dash destroys enemy!
-            const expColor = isShooter ? '#a855f7' : '#38bdf8';
+            const expColor = isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8');
             createExplosion(e.x, e.y, expColor, isHeavy);
             enemies.splice(i, 1);
-            addScore(isHeavy ? 350 : (isShooter ? 200 : 150));
+            addScore(isHeavy ? 350 : (isShooter ? 200 : (isChaser ? 250 : 150)));
             addWP(isHeavy ? 3 : 1);
           } else if (player.isGuarding) {
             // Barrier knocks back / damages enemy and blocks all damage to player!
@@ -4641,15 +4765,15 @@ function gameLoop(currentTime) {
               ));
             }
             if (e.hp <= 0) {
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#34d399');
+              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#34d399'));
               createExplosion(e.x, e.y, expColor, isHeavy);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : 100));
+              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
               addWP(isHeavy ? 3 : 1);
             }
           } else {
             // Take Damage (20 HP loss)
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : '#ff5555');
+            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
             createExplosion(e.x, e.y, expColor, isHeavy);
             enemies.splice(i, 1);
             addWP(isHeavy ? 3 : 1);
