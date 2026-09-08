@@ -1912,8 +1912,13 @@
           </div>
         </div>
       </div>
-      <div class="score-container" id="statContainer">
-        <span id="statLabel">SCORE</span>: <span class="score-val" id="scoreVal">0</span>
+      <div style="display: flex; align-items: center; gap: 8px; pointer-events: auto;">
+        <button id="bgmMuteBtn" title="BGM 切替" style="background: rgba(22, 27, 34, 0.85); border: 1px solid rgba(48, 54, 61, 0.8); color: #e6edf3; border-radius: 50%; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; font-size: 15px; cursor: pointer; backdrop-filter: blur(8px); box-shadow: 0 4px 16px rgba(0,0,0,0.4); transition: transform 0.1s, background 0.2s;">
+          🎵
+        </button>
+        <div class="score-container" id="statContainer">
+          <span id="statLabel">SCORE</span>: <span class="score-val" id="scoreVal">0</span>
+        </div>
       </div>
     </div>
 
@@ -2391,6 +2396,8 @@
   <!-- Multiplayer System (depends on PeerJS + Firebase) -->
   <script src="multiplayer.js"></script>
 
+  <!-- BGM Audio Engine (Web Audio API Synthesizer) -->
+  <script src="bgm.js"></script>
   <script src="game.js"></script>
 </body>
 </html>

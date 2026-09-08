@@ -141,6 +141,16 @@ const mpFill = document.getElementById('mpFill');
 const mpVal = document.getElementById('mpVal');
 const wpVal = document.getElementById('wpVal');
 const uepVal = document.getElementById('uepVal');
+const bgmMuteBtn = document.getElementById('bgmMuteBtn');
+if (bgmMuteBtn) {
+  bgmMuteBtn.addEventListener('click', () => {
+    if (window.bgmManager) {
+      const muted = window.bgmManager.toggleMute();
+      bgmMuteBtn.textContent = muted ? '🔇' : '🎵';
+      bgmMuteBtn.style.opacity = muted ? '0.5' : '1';
+    }
+  });
+}
 
 // Joystick Elements
 const joystickContainer = document.getElementById('joystickContainer');
@@ -159,6 +169,7 @@ resizeCanvas();
 
 // Game State & Mode
 let gameState = 'START';
+window.gameState = gameState;
 let gameMode = 'SCORE_ATTACK'; // 'SCORE_ATTACK' or 'BOSS'
 let bossWarningTimeRemaining = 0;
 let bossBattleElapsedTime = 0;
@@ -604,6 +615,10 @@ function showMenuStep(step) {
 
 function returnToStart() {
   gameState = 'START';
+  window.gameState = 'START';
+  if (window.bgmManager) {
+    window.bgmManager.playTrack('HOME');
+  }
   if (gameOverScreen) gameOverScreen.style.display = 'none';
   if (recordModal) recordModal.style.display = 'none';
   if (leaderboardModal) leaderboardModal.style.display = 'none';
@@ -4040,6 +4055,9 @@ function defeatBoss() {
       scoreBossDefeated = true;
       lastEnemySpawnTime = performance.now();
       showToast('⚠️ 新たな強敵（追尾チェイサー）が出現し始めた！');
+      if (window.bgmManager) {
+        window.bgmManager.playTrack('NORMAL');
+      }
     } else {
       // Boss Mode -> Show victory screen
       if (window.isMultiplayerMode && window.multiplayerManager?.isHost) {
@@ -4090,6 +4108,7 @@ function updateBossHUD() {
 function startGame(mode = 'SCORE_ATTACK') {
   gameMode = mode;
   gameState = 'PLAYING';
+  window.gameState = 'PLAYING';
   score = 0;
   bossBattleElapsedTime = 0;
   if (scoreVal) {
@@ -4162,14 +4181,23 @@ function startGame(mode = 'SCORE_ATTACK') {
       }
     }
     if (bossHud) bossHud.style.display = 'none';
+    // Warning period plays normal combat BGM (Track 3)
+    if (window.bgmManager) {
+      window.bgmManager.playTrack('NORMAL');
+    }
   } else {
     if (bossWarningOverlay) bossWarningOverlay.style.display = 'none';
     if (bossHud) bossHud.style.display = 'none';
+    // Track 3: Normal Combat BGM
+    if (window.bgmManager) {
+      window.bgmManager.playTrack('NORMAL');
+    }
   }
 }
 
 function gameOver(type = 'DEFEAT') {
   gameState = 'GAMEOVER';
+  window.gameState = 'GAMEOVER';
   player.isGuarding = false;
   isGuardHolding = false;
   if (finalStatLabel) {
@@ -4214,6 +4242,9 @@ function gameOver(type = 'DEFEAT') {
   if (bossHud) bossHud.style.display = 'none';
   if (bossWarningOverlay) bossWarningOverlay.style.display = 'none';
   gameOverScreen.style.display = 'flex';
+  if (window.bgmManager) {
+    window.bgmManager.stop();
+  }
   if (type !== 'VICTORY') {
     createExplosion(player.x, player.y, '#58a6ff');
   }
@@ -4720,6 +4751,16 @@ function gameLoop(currentTime) {
       if (bossWarningTimeRemaining <= 0) {
         bossWarningTimeRemaining = 0;
         if (bossWarningOverlay) bossWarningOverlay.style.display = 'none';
+
+        // Switch to Boss Battle BGM right when Boss appears!
+        if (window.bgmManager) {
+          if (gameMode === 'EVENT_BOSS') {
+            window.bgmManager.playTrack('EVENT_BOSS');
+          } else {
+            window.bgmManager.playTrack('BOSS');
+          }
+        }
+
         // Spawn Boss or Event Boss! (In multiplayer client, boss is received from host via GAME_STATE)
         if (!isClientMP) {
           if (gameMode === 'EVENT_BOSS') {
