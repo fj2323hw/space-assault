@@ -1773,19 +1773,23 @@ class Bullet {
   }
 }
 
-// Homing Bullet Class (Skill 3: 3 MP cost, tracks highest HP enemy)
+// Homing Bullet Class (Skill 3: 3 MP cost, tracks highest HP enemy, also used by SummonMinion)
 class HomingBullet {
-  constructor(x, y, vx, vy) {
+  constructor(x, y, vx, vy, options = {}) {
     this.x = x;
     this.y = y;
     this.vx = vx;
     this.vy = vy;
-    this.speed = 13.5;
-    this.turnRate = 0.16; // Agile homing steering
-    this.radius = 7;
-    this.life = 160;
-    this.damage = 1.5; // Deals 1.5 damage
+    this.speed = options.speed ?? 13.5;
+    this.turnRate = options.turnRate ?? 0.16; // Agile homing steering
+    this.radius = options.radius ?? 7;
+    this.life = options.life ?? 160;
+    this.damage = options.damage ?? 1.5; // Deals 1.5 damage
     this.trail = [];
+    this.trailColor = options.trailColor ?? 'rgba(56, 189, 248, 0.45)';
+    this.glowColor = options.glowColor ?? '#00e5ff';
+    this.coreColor = options.coreColor ?? '#0284c7';
+    this.particleColor = options.particleColor ?? '#38bdf8';
   }
 
   update() {
@@ -1845,7 +1849,7 @@ class HomingBullet {
         this.x, this.y,
         (Math.random() - 0.5) * 1.5,
         (Math.random() - 0.5) * 1.5,
-        '#38bdf8',
+        this.particleColor,
         2, 10
       ));
     }
@@ -1861,15 +1865,15 @@ class HomingBullet {
       for (let i = 1; i < this.trail.length; i++) {
         ctx.lineTo(this.trail[i].x, this.trail[i].y);
       }
-      ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+      ctx.strokeStyle = this.trailColor;
       ctx.lineWidth = 4;
       ctx.stroke();
     }
 
     // Bullet body glow
-    ctx.shadowColor = '#00e5ff';
+    ctx.shadowColor = this.glowColor;
     ctx.shadowBlur = 14;
-    ctx.fillStyle = '#0284c7';
+    ctx.fillStyle = this.coreColor;
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
     ctx.fill();
@@ -2044,12 +2048,20 @@ class SummonMinion {
       }
     }
 
-    const bulletSpeed = 14;
+    const bulletSpeed = 13.5;
     const spawnDist = this.radius + 6;
     const bx = this.x + dirX * spawnDist;
     const by = this.y + dirY * spawnDist;
 
-    bullets.push(new Bullet(bx, by, dirX * bulletSpeed, dirY * bulletSpeed));
+    homingBullets.push(new HomingBullet(bx, by, dirX * bulletSpeed, dirY * bulletSpeed, {
+      speed: 13.5,
+      turnRate: 0.18,
+      damage: 1.5,
+      trailColor: 'rgba(192, 132, 252, 0.55)',
+      glowColor: '#c084fc',
+      coreColor: '#9333ea',
+      particleColor: '#e879f9'
+    }));
 
     // 発射エフェクト
     for (let k = 0; k < 6; k++) {
@@ -2062,7 +2074,7 @@ class SummonMinion {
         2.5, 12
       ));
     }
-    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 10, '🤖 SHOT!', '#c084fc'));
+    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 10, '🤖 HOMING!', '#c084fc'));
   }
 
   takeDamage(amount = 20) {
@@ -2169,7 +2181,14 @@ class Enemy {
     // Monster size scale: identical on PC and Mobile (1.0)
     const scale = 1.0;
 
-    if (type === 'large') {
+    if (type === 'tank') {
+      // Super Armored Tank Enemy: radius 40, 15 HP to kill, drops 10 WP
+      this.radius = 40 * scale;
+      this.hp = Math.ceil(15 * (window.multiHpMult || 1));
+      this.maxHp = this.hp;
+      this.color = '#38bdf8'; // Armored steel with bright cyan accent
+      this.rotSpeed = (Math.random() - 0.5) * 0.015;
+    } else if (type === 'large') {
       // Large Enemy: radius 34 (Mobile) / 68 (PC), 5 HP to kill
       this.radius = 34 * scale;
       this.hp = Math.ceil(5 * (window.multiHpMult || 1));
@@ -2299,7 +2318,98 @@ class Enemy {
     ctx.save();
     ctx.translate(this.x, this.y);
 
-    if (this.type === 'large') {
+    if (this.type === 'tank') {
+      // Super Armored Tank Enemy (Titanium Decagon / Heavy Fortress)
+      ctx.save();
+      ctx.rotate(this.angle);
+
+      // Outer heavy fortress aura
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = this.radius * 0.7;
+
+      // Heavy Armored Outer Hull (10-sided polygon with reinforced plates)
+      ctx.fillStyle = '#0f172a';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = Math.max(3, this.radius * 0.12);
+      ctx.beginPath();
+      const r = this.radius;
+      const sides = 10;
+      for (let i = 0; i < sides; i++) {
+        const a = (i * Math.PI * 2) / sides;
+        if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Reinforced Shield Segments / Armor Plates
+      ctx.fillStyle = '#1e293b';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      const innerR = r * 0.68;
+      for (let i = 0; i < sides; i++) {
+        const a = (i * Math.PI * 2) / sides;
+        if (i === 0) ctx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+        else ctx.lineTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Armor Spikes / Fortress Turret Mounts
+      ctx.fillStyle = '#38bdf8';
+      for (let i = 0; i < sides; i += 2) {
+        const a = (i * Math.PI * 2) / sides;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * (r * 0.85), Math.sin(a) * (r * 0.85), 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Glowing Central Energy Core
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = '#e0f2fe';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Core Cross Lattice
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-this.radius * 0.25, 0);
+      ctx.lineTo(this.radius * 0.25, 0);
+      ctx.moveTo(0, -this.radius * 0.25);
+      ctx.lineTo(0, this.radius * 0.25);
+      ctx.stroke();
+
+      ctx.restore();
+
+      // Detailed Mini HP Bar with HP digits above head
+      const barW = this.radius * 1.4;
+      const barH = Math.max(6, this.radius * 0.16);
+      const barY = -this.radius - (barH + 9);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      ctx.fillRect(-barW / 2, barY, barW, barH);
+      const hpPct = Math.max(0, this.hp / this.maxHp);
+      ctx.fillStyle = hpPct > 0.4 ? '#38bdf8' : '#f85149';
+      ctx.fillRect(-barW / 2, barY, barW * hpPct, barH);
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-barW / 2, barY, barW, barH);
+
+      // Mini text: HP label
+      ctx.save();
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(`${this.hp}/${this.maxHp}`, 0, barY - 2);
+      ctx.restore();
+
+    } else if (this.type === 'large') {
       // Heavy Enemy Body
       ctx.save();
       ctx.rotate(this.angle);
@@ -3120,37 +3230,47 @@ let lastEnemySpawnTime = 0;
 function spawnEnemy() {
   const isPortrait = canvas.height > canvas.width;
   const isMobile = checkIsMobile();
-  // ~22% chance of 2x size heavy enemy (5 HP)
-  const isLarge = Math.random() < 0.22;
-  const speedMult = isLarge ? 0.72 : 1.0;
+
+  // Tank enemy (HP15 / 10WP) only spawns after defeating the Boss!
+  const canSpawnTank = !!scoreBossDefeated;
+
+  // Spawning chances:
+  // After Boss: Tank (~14%), Large (~20%), Chaser (~20%), Shooter (~18%), Normal (remaining)
+  // Before Boss: Large (~22%), Chaser (~15%), Shooter (~15%), Normal (remaining)
+  const roll = Math.random();
+  let chosenType = 'normal';
+  let isTank = false;
+  let isLarge = false;
+
+  if (canSpawnTank && roll < 0.14) {
+    chosenType = 'tank';
+    isTank = true;
+  } else if (roll < (canSpawnTank ? 0.34 : 0.15)) {
+    chosenType = 'chaser';
+  } else if (roll < (canSpawnTank ? 0.52 : 0.30)) {
+    chosenType = 'shooter';
+  } else if (roll < (canSpawnTank ? 0.72 : 0.52)) {
+    chosenType = 'large';
+    isLarge = true;
+  }
+
+  const speedMult = isTank ? 0.55 : (isLarge ? 0.72 : 1.0);
 
   let x, y, vx, vy;
 
   if (isPortrait) {
     // Smartphone / Vertical screen: Flow from TOP to BOTTOM
     x = Math.random() * (canvas.width - 80) + 40;
-    y = isLarge ? -50 : -30;
-    vx = (Math.random() - 0.5) * 1.4 * speedMult;
-    vy = (Math.random() * 1.8 + 2.2) * speedMult; // Downward
+    y = isTank ? -65 : (isLarge ? -50 : -30);
+    vx = (Math.random() - 0.5) * 1.2 * speedMult;
+    vy = (Math.random() * 1.6 + 2.0) * speedMult; // Downward
   } else {
     // PC / Horizontal screen: Flow from RIGHT to LEFT
-    const spawnMargin = (isLarge ? 75 : 45) * (isMobile ? 1.0 : 1.5);
+    const spawnMargin = (isTank ? 90 : (isLarge ? 75 : 45)) * (isMobile ? 1.0 : 1.5);
     x = canvas.width + spawnMargin;
     y = Math.random() * (canvas.height - 120) + 60;
     vx = -(Math.random() * 1.8 + 2.4) * speedMult; // Leftward
-    vy = (Math.random() - 0.5) * 1.4 * speedMult;
-  }
-
-  let chosenType = 'normal';
-  const r = Math.random();
-  if (r < 0.15) {
-    // Chaser (追尾敵) spawns from the beginning!
-    chosenType = 'chaser';
-  } else if (r < 0.30) {
-    // Shooter spawns from the beginning!
-    chosenType = 'shooter';
-  } else if (isLarge) {
-    chosenType = 'large';
+    vy = (Math.random() - 0.5) * 1.2 * speedMult;
   }
 
   enemies.push(new Enemy(x, y, vx, vy, isPortrait, chosenType));
@@ -3623,16 +3743,17 @@ function activateSkill() {
       } else {
         target.hp -= 100;
         if (target.hp <= 0) {
+          const isTank = target.type === 'tank';
           const isHeavy = target.type === 'large';
           const isShooter = target.type === 'shooter';
           const isChaser = target.type === 'chaser';
-          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ffd33d'));
+          const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ffd33d')));
           createExplosion(target.x, target.y, expColor, true);
           const remIdx = targetEnemies.indexOf(target);
           if (remIdx !== -1) targetEnemies.splice(remIdx, 1);
-          addScore(isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500)));
-          addWP(5);
-          addUEP(5);
+          addScore(isTank ? 1500 : (isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500))));
+          addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+          addUEP(isTank ? 8 : 5);
         }
         window.multiplayerManager.reportBulletHit('enemy', target.id, 100);
       }
@@ -3642,16 +3763,17 @@ function activateSkill() {
       } else {
         target.hp -= 100;
         if (target.hp <= 0) {
+          const isTank = target.type === 'tank';
           const isHeavy = target.type === 'large';
           const isShooter = target.type === 'shooter';
           const isChaser = target.type === 'chaser';
-          const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ffd33d'));
+          const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ffd33d')));
           createExplosion(target.x, target.y, expColor, true);
           const idx = enemies.indexOf(target);
           if (idx !== -1) enemies.splice(idx, 1);
-          addScore(isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500)));
-          addWP(5);
-          addUEP(5);
+          addScore(isTank ? 1500 : (isHeavy ? 1000 : (isShooter ? 600 : (isChaser ? 700 : 500))));
+          addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+          addUEP(isTank ? 8 : 5);
         }
       }
     }
@@ -4020,10 +4142,10 @@ function defeatBoss() {
     enemies.length = 0;
 
     if (isScoreMode) {
-      // Score Attack continues! Unlock Homing Chaser enemies & resume spawns
+      // Score Attack continues! Unlock Homing Chasers & Super Armored Tanks (HP15 / 10WP)
       scoreBossDefeated = true;
       lastEnemySpawnTime = performance.now();
-      showToast('⚠️ 新たな強敵（追尾チェイサー）が出現し始めた！');
+      showToast('⚠️ 新たな強敵「要塞タンク (HP15 / 10WP)」が出現し始めた！');
       if (window.bgmManager) {
         window.bgmManager.playTrack('NORMAL');
       }
@@ -5037,14 +5159,15 @@ function gameLoop(currentTime) {
             window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
 
             if (re.hp <= 0) {
+              const isTank = re.type === 'tank';
               const isHeavy = re.type === 'large';
               const isShooter = re.type === 'shooter';
               const isChaser = re.type === 'chaser';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
-              createExplosion(re.x, re.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555')));
+              createExplosion(re.x, re.y, expColor, isHeavy || isTank);
               remoteEnemies.splice(i, 1);
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
               enemyDestroyed = true;
               break;
             }
@@ -5076,14 +5199,15 @@ function gameLoop(currentTime) {
             window.multiplayerManager.reportBulletHit('enemy', re.id, hb.damage);
 
             if (re.hp <= 0) {
+              const isTank = re.type === 'tank';
               const isHeavy = re.type === 'large';
               const isShooter = re.type === 'shooter';
               const isChaser = re.type === 'chaser';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8'));
-              createExplosion(re.x, re.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8')));
+              createExplosion(re.x, re.y, expColor, isHeavy || isTank);
               remoteEnemies.splice(i, 1);
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
               enemyDestroyed = true;
               break;
             }
@@ -5125,14 +5249,15 @@ function gameLoop(currentTime) {
               summonMinions.splice(m, 1);
             }
             if (re.hp <= 0) {
+              const isTank = re.type === 'tank';
               const isHeavy = re.type === 'large';
               const isShooter = re.type === 'shooter';
               const isChaser = re.type === 'chaser';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#c084fc'));
-              createExplosion(re.x, re.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#c084fc')));
+              createExplosion(re.x, re.y, expColor, isHeavy || isTank);
               remoteEnemies.splice(i, 1);
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
               enemyDestroyed = true;
               break;
             }
@@ -5143,32 +5268,33 @@ function gameLoop(currentTime) {
 
         // Player vs Remote Enemy Body Collision
         if (distToPlayer < player.radius + re.radius) {
+          const isTank = re.type === 'tank';
           const isHeavy = re.type === 'large';
           const isShooter = re.type === 'shooter';
           const isChaser = re.type === 'chaser';
           if (player.isDashing) {
-            const expColor = isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8');
-            createExplosion(re.x, re.y, expColor, isHeavy);
-            window.multiplayerManager.reportBulletHit('enemy', re.id, 5);
+            const expColor = isTank ? '#38bdf8' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8'));
+            createExplosion(re.x, re.y, expColor, isHeavy || isTank);
+            window.multiplayerManager.reportBulletHit('enemy', re.id, 15);
             remoteEnemies.splice(i, 1);
-            addWP(isHeavy ? 3 : 1);
-            addUEP(isHeavy ? 3 : 1);
+            addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+            addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
           } else if (player.isGuarding) {
             re.hp -= 1;
             window.multiplayerManager.reportBulletHit('enemy', re.id, 1);
             if (re.hp <= 0) {
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#34d399'));
-              createExplosion(re.x, re.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#34d399')));
+              createExplosion(re.x, re.y, expColor, isHeavy || isTank);
               remoteEnemies.splice(i, 1);
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
             }
           } else {
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
-            createExplosion(re.x, re.y, expColor, isHeavy);
+            const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555')));
+            createExplosion(re.x, re.y, expColor, isHeavy || isTank);
             remoteEnemies.splice(i, 1);
-            addWP(isHeavy ? 3 : 1);
-            addUEP(isHeavy ? 3 : 1);
+            addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+            addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
             takeDamage();
           }
         }
@@ -5213,15 +5339,16 @@ function gameLoop(currentTime) {
             }
 
             if (e.hp <= 0) {
+              const isTank = e.type === 'tank';
               const isHeavy = e.type === 'large';
               const isShooter = e.type === 'shooter';
               const isChaser = e.type === 'chaser';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
-              createExplosion(e.x, e.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555')));
+              createExplosion(e.x, e.y, expColor, isHeavy || isTank);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addScore(isTank ? 800 : (isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100))));
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
               enemyDestroyed = true;
               break;
             }
@@ -5251,15 +5378,16 @@ function gameLoop(currentTime) {
             }
 
             if (e.hp <= 0) {
+              const isTank = e.type === 'tank';
               const isHeavy = e.type === 'large';
               const isShooter = e.type === 'shooter';
               const isChaser = e.type === 'chaser';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8'));
-              createExplosion(e.x, e.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8')));
+              createExplosion(e.x, e.y, expColor, isHeavy || isTank);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addScore(isTank ? 800 : (isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100))));
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
               enemyDestroyed = true;
               break;
             }
@@ -5311,15 +5439,16 @@ function gameLoop(currentTime) {
             }
 
             if (e.hp <= 0) {
+              const isTank = e.type === 'tank';
               const isHeavy = e.type === 'large';
               const isShooter = e.type === 'shooter';
               const isChaser = e.type === 'chaser';
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#c084fc'));
-              createExplosion(e.x, e.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#c084fc')));
+              createExplosion(e.x, e.y, expColor, isHeavy || isTank);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addScore(isTank ? 800 : (isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100))));
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
               enemyDestroyed = true;
               break;
             }
@@ -5330,17 +5459,18 @@ function gameLoop(currentTime) {
 
         // Body Collision: Player vs Enemy
         if (distToPlayer < player.radius + e.radius) {
+          const isTank = e.type === 'tank';
           const isHeavy = e.type === 'large';
           const isShooter = e.type === 'shooter';
           const isChaser = e.type === 'chaser';
           if (player.isDashing) {
             // Dash destroys enemy!
-            const expColor = isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8');
-            createExplosion(e.x, e.y, expColor, isHeavy);
+            const expColor = isTank ? '#38bdf8' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#38bdf8'));
+            createExplosion(e.x, e.y, expColor, isHeavy || isTank);
             enemies.splice(i, 1);
-            addScore(isHeavy ? 350 : (isShooter ? 200 : (isChaser ? 250 : 150)));
-            addWP(isHeavy ? 3 : 1);
-            addUEP(isHeavy ? 3 : 1);
+            addScore(isTank ? 1000 : (isHeavy ? 350 : (isShooter ? 200 : (isChaser ? 250 : 150))));
+            addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+            addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
           } else if (player.isGuarding) {
             // Barrier knocks back / damages enemy and blocks all damage to player!
             e.hp -= 1;
@@ -5356,20 +5486,20 @@ function gameLoop(currentTime) {
               ));
             }
             if (e.hp <= 0) {
-              const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#34d399'));
-              createExplosion(e.x, e.y, expColor, isHeavy);
+              const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#34d399')));
+              createExplosion(e.x, e.y, expColor, isHeavy || isTank);
               enemies.splice(i, 1);
-              addScore(isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100)));
-              addWP(isHeavy ? 3 : 1);
-              addUEP(isHeavy ? 3 : 1);
+              addScore(isTank ? 800 : (isHeavy ? 300 : (isShooter ? 150 : (isChaser ? 200 : 100))));
+              addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+              addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
             }
           } else {
             // Take Damage (20 HP loss)
-            const expColor = isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555'));
-            createExplosion(e.x, e.y, expColor, isHeavy);
+            const expColor = isTank ? '#38bdf8' : (isHeavy ? '#ff2a6d' : (isShooter ? '#a855f7' : (isChaser ? '#f59e0b' : '#ff5555')));
+            createExplosion(e.x, e.y, expColor, isHeavy || isTank);
             enemies.splice(i, 1);
-            addWP(isHeavy ? 3 : 1);
-            addUEP(isHeavy ? 3 : 1);
+            addWP(isTank ? 10 : (isHeavy ? 3 : 1));
+            addUEP(isTank ? 8 : (isHeavy ? 3 : 1));
             takeDamage();
           }
         }

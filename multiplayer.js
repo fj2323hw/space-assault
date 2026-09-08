@@ -606,7 +606,61 @@ class RemoteEnemy {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
 
-    if (this.type === 'large') {
+    if (this.type === 'tank') {
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur  = this.radius * 0.7;
+      ctx.fillStyle   = '#0f172a';
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth   = Math.max(3, this.radius * 0.12);
+      ctx.beginPath();
+      const r = this.radius, sides = 10;
+      for (let i = 0; i < sides; i++) {
+        const a = (i * Math.PI * 2) / sides;
+        if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        else         ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle   = '#1e293b';
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth   = 1.8;
+      ctx.beginPath();
+      const innerR = r * 0.68;
+      for (let i = 0; i < sides; i++) {
+        const a = (i * Math.PI * 2) / sides;
+        if (i === 0) ctx.moveTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+        else         ctx.lineTo(Math.cos(a) * innerR, Math.sin(a) * innerR);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#38bdf8';
+      for (let i = 0; i < sides; i += 2) {
+        const a = (i * Math.PI * 2) / sides;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * (r * 0.85), Math.sin(a) * (r * 0.85), 3.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.shadowColor = '#38bdf8';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle  = '#e0f2fe';
+      ctx.beginPath();
+      ctx.arc(0, 0, this.radius * 0.3, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = '#0284c7';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-this.radius * 0.25, 0);
+      ctx.lineTo(this.radius * 0.25, 0);
+      ctx.moveTo(0, -this.radius * 0.25);
+      ctx.lineTo(0, this.radius * 0.25);
+      ctx.stroke();
+    } else if (this.type === 'large') {
       ctx.shadowColor = '#ff2a6d';
       ctx.shadowBlur  = this.radius * 0.53;
       ctx.fillStyle   = '#ff2a6d';
@@ -697,15 +751,15 @@ class RemoteEnemy {
 
     ctx.restore();
 
-    // HP bar for large/shooter/chaser
+    // HP bar for tank/large/shooter/chaser
     if (this.maxHp > 2) {
-      const bw = this.radius * 1.25;
-      const bh = Math.max(4, this.radius * 0.13);
+      const bw = this.radius * 1.35;
+      const bh = Math.max(4, this.radius * 0.14);
       const by = this.y - this.radius - (bh + 7);
       const bx = this.x - bw / 2;
-      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillStyle = 'rgba(0,0,0,0.75)';
       ctx.fillRect(bx, by, bw, bh);
-      ctx.fillStyle = this.type === 'large' ? '#ff2a6d' : (this.type === 'chaser' ? '#f59e0b' : '#a855f7');
+      ctx.fillStyle = this.type === 'tank' ? '#38bdf8' : (this.type === 'large' ? '#ff2a6d' : (this.type === 'chaser' ? '#f59e0b' : '#a855f7'));
       ctx.fillRect(bx, by, bw * Math.max(0, this.hp / this.maxHp), bh);
     }
   }
