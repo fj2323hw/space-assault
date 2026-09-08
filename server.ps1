@@ -163,6 +163,9 @@ while ($true) {
                             if (-not $targetDeviceLb.boss) {
                                 $targetDeviceLb | Add-Member -NotePropertyName "boss" -NotePropertyValue (New-Object PSObject) -Force
                             }
+                            if (-not $targetDeviceLb.eventBoss) {
+                                $targetDeviceLb | Add-Member -NotePropertyName "eventBoss" -NotePropertyValue @() -Force
+                            }
 
                             $name = if ([string]::IsNullOrWhiteSpace($entry.name)) { "Player" } else { $entry.name.Trim() }
                             if ($name.Length -gt 15) { $name = $name.Substring(0, 15) }
@@ -200,6 +203,18 @@ while ($true) {
                                 } else {
                                     $existingBossObj | Add-Member -NotePropertyName $lvlKey -NotePropertyValue @($bSorted) -Force
                                 }
+                            }
+                            elseif ($entry.mode -eq "EVENT_BOSS") {
+                                $dmgVal = if ($entry.damage) { [double]$entry.damage } elseif ($entry.score) { [double]$entry.score } else { 0.0 }
+                                $newRecord = @{
+                                    name = $name
+                                    damage = [math]::Round($dmgVal, 1)
+                                    date = $dateStr
+                                }
+                                $list = [System.Collections.ArrayList]@($targetDeviceLb.eventBoss)
+                                $list.Add($newRecord) | Out-Null
+                                $sorted = $list | Sort-Object -Property @{Expression = { [double]$_.damage }; Descending = $true } | Select-Object -First 10
+                                $targetDeviceLb.eventBoss = @($sorted)
                             }
 
                             $savedJson = $lb | ConvertTo-Json -Depth 6

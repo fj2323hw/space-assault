@@ -103,6 +103,7 @@ const closeLeaderboardBtn = document.getElementById('closeLeaderboardBtn');
 const closeLeaderboardBottomBtn = document.getElementById('closeLeaderboardBottomBtn');
 const lbTabScore = document.getElementById('lbTabScore');
 const lbTabBoss = document.getElementById('lbTabBoss');
+const lbTabEventBoss = document.getElementById('lbTabEventBoss');
 const lbBossLevelBar = document.getElementById('lbBossLevelBar');
 const lbBossLvlMinusBtn = document.getElementById('lbBossLvlMinusBtn');
 const lbBossLvlPlusBtn = document.getElementById('lbBossLvlPlusBtn');
@@ -123,7 +124,7 @@ const submitRecordBtn = document.getElementById('submitRecordBtn');
 const skipRecordBtn = document.getElementById('skipRecordBtn');
 
 // Leaderboard Client State
-let currentLeaderboardTab = 'SCORE_ATTACK'; // 'SCORE_ATTACK' or 'BOSS'
+let currentLeaderboardTab = 'SCORE_ATTACK'; // 'SCORE_ATTACK', 'BOSS', or 'EVENT_BOSS'
 let currentLeaderboardDevice = 'pc'; // 'pc' or 'mobile'
 let currentLeaderboardCategory = 'solo'; // 'solo' or 'multi'
 let leaderboardBossLevel = 1;
@@ -1186,12 +1187,12 @@ async function fetchOnlineLeaderboard() {
       // Organize into standard structure: { solo: { pc: ..., mobile: ... }, multi: { pc: ..., mobile: ... } }
       const formatted = {
         solo: {
-          pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } },
-          mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } }
+          pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] }, eventBoss: [] },
+          mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] }, eventBoss: [] }
         },
         multi: {
-          pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } },
-          mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] } }
+          pc: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] }, eventBoss: [] },
+          mobile: { scoreAttack: [], boss: { '1': [], '2': [], '3': [], '4': [], '5': [] }, eventBoss: [] }
         }
       };
 
@@ -1204,10 +1205,13 @@ async function fetchOnlineLeaderboard() {
           const lvl = String(rec.level || 1);
           if (!formatted[cat][dev].boss[lvl]) formatted[cat][dev].boss[lvl] = [];
           formatted[cat][dev].boss[lvl].push(rec);
+        } else if (rec.mode === 'EVENT_BOSS') {
+          if (!formatted[cat][dev].eventBoss) formatted[cat][dev].eventBoss = [];
+          formatted[cat][dev].eventBoss.push(rec);
         }
       });
 
-      // Sort Score Attack desc (high to low) and Boss time asc (fastest to slowest)
+      // Sort Score Attack desc, Boss time asc, and Event Boss damage desc
       ['solo', 'multi'].forEach((cat) => {
         ['pc', 'mobile'].forEach((dev) => {
           formatted[cat][dev].scoreAttack.sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0));
@@ -1216,6 +1220,13 @@ async function fetchOnlineLeaderboard() {
             if (formatted[cat][dev].boss[lvl]) {
               formatted[cat][dev].boss[lvl].sort((a, b) => (Number(a.time) || 999999) - (Number(b.time) || 999999));
             }
+          }
+          if (formatted[cat][dev].eventBoss) {
+            formatted[cat][dev].eventBoss.sort((a, b) => {
+              const valA = Number(a.damage ?? a.score ?? 0);
+              const valB = Number(b.damage ?? b.score ?? 0);
+              return valB - valA;
+            });
           }
         });
       });
@@ -1243,14 +1254,14 @@ async function fetchOnlineLeaderboard() {
         cachedLeaderboardData = JSON.parse(local);
       } else {
         cachedLeaderboardData = {
-          solo: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } },
-          multi: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } }
+          solo: { pc: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] }, mobile: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] } },
+          multi: { pc: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] }, mobile: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] } }
         };
       }
     } catch (e) {
       cachedLeaderboardData = {
-        solo: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } },
-        multi: { pc: { scoreAttack: [], boss: { '1': [] } }, mobile: { scoreAttack: [], boss: { '1': [] } } }
+        solo: { pc: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] }, mobile: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] } },
+        multi: { pc: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] }, mobile: { scoreAttack: [], boss: { '1': [] }, eventBoss: [] } }
       };
     }
     renderLeaderboardView();
@@ -1270,11 +1281,16 @@ function renderLeaderboardView() {
 
   let list = [];
   const isScoreMode = (currentLeaderboardTab === 'SCORE_ATTACK');
+  const isEventBossMode = (currentLeaderboardTab === 'EVENT_BOSS');
 
   if (isScoreMode) {
     if (lbColStatHeader) lbColStatHeader.innerText = 'スコア';
     if (lbBossLevelBar) lbBossLevelBar.style.display = 'none';
     list = deviceData.scoreAttack || [];
+  } else if (isEventBossMode) {
+    if (lbColStatHeader) lbColStatHeader.innerText = '与ダメージ';
+    if (lbBossLevelBar) lbBossLevelBar.style.display = 'none';
+    list = deviceData.eventBoss || [];
   } else {
     if (lbColStatHeader) lbColStatHeader.innerText = 'クリアタイム';
     if (lbBossLevelBar) lbBossLevelBar.style.display = 'flex';
@@ -1298,8 +1314,19 @@ function renderLeaderboardView() {
     else if (rank === 2) badgeClass = 'rank-2';
     else if (rank === 3) badgeClass = 'rank-3';
 
-    const valDisplay = isScoreMode ? (Number(item.score).toLocaleString()) : formatBattleTime(Number(item.time));
-    const valClass = isScoreMode ? 'lb-score-cell' : 'lb-time-cell';
+    let valDisplay = '';
+    let valClass = '';
+    if (isScoreMode) {
+      valDisplay = Number(item.score).toLocaleString();
+      valClass = 'lb-score-cell';
+    } else if (isEventBossMode) {
+      const dmgVal = Number(item.damage ?? item.score ?? 0);
+      valDisplay = `${dmgVal.toFixed(1)} DMG`;
+      valClass = 'lb-dmg-cell';
+    } else {
+      valDisplay = formatBattleTime(Number(item.time));
+      valClass = 'lb-time-cell';
+    }
 
     tr.innerHTML = `
       <td><span class="lb-rank-badge ${badgeClass}">${rank}</span></td>
@@ -1339,6 +1366,7 @@ function openLeaderboardModal(tab = 'SCORE_ATTACK', bossLvl = 1, category = null
 
   if (lbTabScore) lbTabScore.classList.toggle('active', tab === 'SCORE_ATTACK');
   if (lbTabBoss) lbTabBoss.classList.toggle('active', tab === 'BOSS');
+  if (lbTabEventBoss) lbTabEventBoss.classList.toggle('active', tab === 'EVENT_BOSS');
 
   if (leaderboardModal) leaderboardModal.style.display = 'flex';
   fetchOnlineLeaderboard();
@@ -1364,7 +1392,8 @@ if (bossStepLeaderboardBtn) {
 if (gameoverLeaderboardBtn) {
   gameoverLeaderboardBtn.addEventListener('click', (e) => {
     e.preventDefault();
-    openLeaderboardModal(gameMode === 'BOSS' ? 'BOSS' : 'SCORE_ATTACK', bossLevel, window.isMultiplayerMode ? 'multi' : 'solo');
+    const defaultTab = (gameMode === 'EVENT_BOSS') ? 'EVENT_BOSS' : ((gameMode === 'BOSS') ? 'BOSS' : 'SCORE_ATTACK');
+    openLeaderboardModal(defaultTab, bossLevel, window.isMultiplayerMode ? 'multi' : 'solo');
   });
 }
 if (closeLeaderboardBtn) closeLeaderboardBtn.addEventListener('click', closeLeaderboard);
@@ -1406,12 +1435,13 @@ if (lbDeviceTabMobile) {
   });
 }
 
-// Tab switching inside Leaderboard Modal (Score Attack / Boss)
+// Tab switching inside Leaderboard Modal (Score Attack / Boss / Event Boss)
 if (lbTabScore) {
   lbTabScore.addEventListener('click', () => {
     currentLeaderboardTab = 'SCORE_ATTACK';
     lbTabScore.classList.add('active');
-    lbTabBoss.classList.remove('active');
+    if (lbTabBoss) lbTabBoss.classList.remove('active');
+    if (lbTabEventBoss) lbTabEventBoss.classList.remove('active');
     renderLeaderboardView();
   });
 }
@@ -1419,7 +1449,17 @@ if (lbTabBoss) {
   lbTabBoss.addEventListener('click', () => {
     currentLeaderboardTab = 'BOSS';
     lbTabBoss.classList.add('active');
-    lbTabScore.classList.remove('active');
+    if (lbTabScore) lbTabScore.classList.remove('active');
+    if (lbTabEventBoss) lbTabEventBoss.classList.remove('active');
+    renderLeaderboardView();
+  });
+}
+if (lbTabEventBoss) {
+  lbTabEventBoss.addEventListener('click', () => {
+    currentLeaderboardTab = 'EVENT_BOSS';
+    lbTabEventBoss.classList.add('active');
+    if (lbTabScore) lbTabScore.classList.remove('active');
+    if (lbTabBoss) lbTabBoss.classList.remove('active');
     renderLeaderboardView();
   });
 }
@@ -1460,20 +1500,46 @@ function checkAndPromptRecordRegistration(mode, statValue, lvl = 1) {
   };
 
   if (recordModalTitle) {
-    recordModalTitle.innerText = (mode === 'BOSS') 
-      ? (isMulti ? '👑 MULTI BOSS CLEAR RECORD!' : '👑 BOSS CLEAR RECORD!')
-      : (isMulti ? '🎉 MULTI SCORE RECORD!' : '🎉 SCORE ATTACK RECORD!');
+    if (mode === 'EVENT_BOSS') {
+      recordModalTitle.innerText = isMulti ? '👑 MULTI HAMGOD RECORD!' : '👑 HAMGOD DAMAGE RECORD!';
+    } else if (mode === 'BOSS') {
+      recordModalTitle.innerText = isMulti ? '👑 MULTI BOSS CLEAR RECORD!' : '👑 BOSS CLEAR RECORD!';
+    } else {
+      recordModalTitle.innerText = isMulti ? '🎉 MULTI SCORE RECORD!' : '🎉 SCORE ATTACK RECORD!';
+    }
   }
   if (recordModalSubtitle) {
-    recordModalSubtitle.innerText = (mode === 'BOSS')
-      ? (isMulti ? `マルチボス (レベル${lvl}) のクリアタイムをオンライン共有！` : `ボス (レベル${lvl}) のクリアタイムをオンライン共有！`)
-      : (isMulti ? 'マルチプレイのスコアをオンラインリーダーボードに共有！' : 'オンラインリーダーボードにあなたのスコアを共有しよう！');
+    if (mode === 'EVENT_BOSS') {
+      recordModalSubtitle.innerText = isMulti 
+        ? 'マルチプレイでのハム神への激闘の記録（与ダメージ量）をオンライン共有！' 
+        : 'ハム神への激闘の記録（与ダメージ量）をオンラインリーダーボードに共有！';
+    } else if (mode === 'BOSS') {
+      recordModalSubtitle.innerText = isMulti 
+        ? `マルチボス (レベル${lvl}) のクリアタイムをオンライン共有！` 
+        : `ボス (レベル${lvl}) のクリアタイムをオンライン共有！`;
+    } else {
+      recordModalSubtitle.innerText = isMulti 
+        ? 'マルチプレイのスコアをオンラインリーダーボードに共有！' 
+        : 'オンラインリーダーボードにあなたのスコアを共有しよう！';
+    }
   }
   if (recordValLabel) {
-    recordValLabel.innerText = (mode === 'BOSS') ? 'CLEAR TIME' : 'FINAL SCORE';
+    if (mode === 'EVENT_BOSS') {
+      recordValLabel.innerText = 'TOTAL DAMAGE';
+    } else if (mode === 'BOSS') {
+      recordValLabel.innerText = 'CLEAR TIME';
+    } else {
+      recordValLabel.innerText = 'FINAL SCORE';
+    }
   }
   if (recordValNum) {
-    recordValNum.innerText = (mode === 'BOSS') ? formatBattleTime(statValue) : statValue.toLocaleString();
+    if (mode === 'EVENT_BOSS') {
+      recordValNum.innerText = `${Number(statValue).toFixed(1)} DMG`;
+    } else if (mode === 'BOSS') {
+      recordValNum.innerText = formatBattleTime(statValue);
+    } else {
+      recordValNum.innerText = statValue.toLocaleString();
+    }
   }
 
   // Restore remembered nickname or player's multi name
@@ -1506,6 +1572,7 @@ async function submitRecord() {
     mode: pendingRecordToRegister.mode,
     score: pendingRecordToRegister.mode === 'SCORE_ATTACK' ? Math.round(pendingRecordToRegister.value) : 0,
     time: pendingRecordToRegister.mode === 'BOSS' ? pendingRecordToRegister.value : 0,
+    damage: pendingRecordToRegister.mode === 'EVENT_BOSS' ? Math.round(pendingRecordToRegister.value * 10) / 10 : 0,
     level: pendingRecordToRegister.level || 1,
     category: pendingRecordToRegister.category || 'solo',
     isMulti: pendingRecordToRegister.category === 'multi',
@@ -2841,7 +2908,7 @@ class EventBossHamGod {
     this.maxHp = 999999;
     this.totalDamage = 0;
     this.enrageLevel = 1;
-    this.actionInterval = 5000; // Attacks every 5 seconds!
+    this.actionInterval = 1000; // Fires a big orb every 1.0 second!
     this.lastActionTime = performance.now();
     this.angle = 0;
     this.baseTime = performance.now();
@@ -2849,33 +2916,23 @@ class EventBossHamGod {
     this.color = '#38bdf8';
     this.hasGrazed = false;
 
-    // Pattern rotation: 0 = 4-Enemy 5-Burst, 1 = Random Big Orb, 2 = 2-Sec Tracking Laser
-    this.attackPatternIndex = 0;
+    // Summon timer: Summon 4 enemies every 5.0 seconds (+ 2nd wave 1s later)
+    this.lastSummonTime = performance.now();
+    this.summonInterval = 5000;
 
-    // Attack 1 state: 4 types of enemies, 5 bullets fired in rapid succession
-    this.enemyBurstQueue = [];
-    this.lastEnemyBurstShot = 0;
-    this.enemyBurstInterval = 140; // 140ms between shots
+    // Second summon wave state (1.0s after first summon)
+    this.pendingSecondSummonTime = 0;
 
-    // Attack 3 state: 2-second tracking laser
+    // Laser has been removed
+    this.laserWarningActive = false;
     this.laserActive = false;
-    this.laserStartTime = 0;
-    this.laserDuration = 2000; // 2.0 seconds
     this.laserAngle = 0;
-    this.laserTurnSpeed = 0.038; // slowly tracks player
-    this.laserLength = 1600;
-    this.laserWidth = 34;
-    this.lastLaserDamageTime = 0;
+    this.laserLength = 0;
+    this.laserWidth = 0;
 
-    // Determine initial entry position
-    const isPortrait = canvas.height > canvas.width;
-    if (isPortrait) {
-      this.x = canvas.width / 2;
-      this.y = -90;
-    } else {
-      this.x = canvas.width + 90;
-      this.y = canvas.height / 2;
-    }
+    // Determine initial entry position: Top Center
+    this.x = canvas.width / 2;
+    this.y = -90;
   }
 
   update(currentTime) {
@@ -2886,127 +2943,94 @@ class EventBossHamGod {
     // Enrage level scales every 15 damage
     this.enrageLevel = 1 + Math.floor(this.totalDamage / 15);
 
-    // Target idle position: Right on PC (landscape), Top on Smartphone (portrait)
+    // Target idle position: Screen Top Center (画面上部の中央)
     let targetX, targetY;
     if (isPortrait) {
-      targetX = canvas.width / 2 + Math.sin(elapsed * 1.6) * (canvas.width * 0.32);
-      targetY = Math.max(90, canvas.height * 0.20 + Math.cos(elapsed * 2.5) * 15);
+      targetX = canvas.width / 2 + Math.sin(elapsed * 1.5) * (canvas.width * 0.18);
+      targetY = Math.max(90, canvas.height * 0.16 + Math.cos(elapsed * 2.2) * 12);
     } else {
-      targetX = Math.min(canvas.width - this.radius - 30, canvas.width * 0.80 + Math.sin(elapsed * 1.7) * 18);
-      targetY = canvas.height / 2 + Math.sin(elapsed * 1.3) * (canvas.height * 0.28);
+      // PC / Landscape: Keep strictly around Top Center with subtle bobbing
+      targetX = canvas.width / 2 + Math.sin(elapsed * 1.2) * 20;
+      targetY = Math.max(90, canvas.height * 0.15 + Math.cos(elapsed * 2.0) * 12);
     }
 
-    this.x += (targetX - this.x) * 0.05 * timeScale;
-    this.y += (targetY - this.y) * 0.05 * timeScale;
+    this.x += (targetX - this.x) * 0.06 * timeScale;
+    this.y += (targetY - this.y) * 0.06 * timeScale;
     this.angle += 0.015 * timeScale;
 
-    // Process Attack 1: 5-enemy shot sequence
-    if (this.enemyBurstQueue.length > 0 && currentTime - this.lastEnemyBurstShot >= this.enemyBurstInterval) {
-      const bulletType = this.enemyBurstQueue.shift();
-      this.fireEnemyShapedBullet(bulletType);
-      this.lastEnemyBurstShot = currentTime;
+    // Process Second Summon Wave (1.0 second after first wave)
+    if (this.pendingSecondSummonTime > 0 && currentTime >= this.pendingSecondSummonTime) {
+      this.pendingSecondSummonTime = 0;
+      this.spawnFourEnemies(true);
     }
 
-    // Process Attack 3: 2-second tracking laser
-    if (this.laserActive) {
-      const laserElapsed = currentTime - this.laserStartTime;
-      if (laserElapsed >= this.laserDuration) {
-        this.laserActive = false;
-      } else {
-        // Slowly steer laser angle towards player
-        let targetX = player.x, targetY = player.y;
-        if (window.isMultiplayerMode && window.multiplayerManager) {
-          const targets = window.multiplayerManager.getAliveTargets();
-          if (targets.length > 0) {
-            targetX = targets[0].x;
-            targetY = targets[0].y;
-          }
-        }
-        const desiredAngle = Math.atan2(targetY - this.y, targetX - this.x);
-        let angleDiff = desiredAngle - this.laserAngle;
-        while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-        while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        const turnSpd = (this.laserTurnSpeed + (this.enrageLevel - 1) * 0.005) * timeScale;
-        this.laserAngle += Math.sign(angleDiff) * Math.min(Math.abs(angleDiff), turnSpd);
-
-        // Laser beam collision with player
-        if (currentTime - this.lastLaserDamageTime >= 280) {
-          this.checkLaserCollision();
-          this.lastLaserDamageTime = currentTime;
-        }
-
-        // Screen shake & particles during laser
-        if (Math.random() < 0.35) screenShake = Math.max(screenShake, 4);
-      }
+    // Periodic Summon of 4 enemies (every 5 seconds)
+    if (currentTime - this.lastSummonTime >= this.summonInterval) {
+      this.lastSummonTime = currentTime;
+      this.actionSummonEnemies();
     }
 
-    // Trigger action every 5 seconds (slightly reduced by enrage level down to 3.8s)
-    const currentInterval = Math.max(3800, this.actionInterval - (this.enrageLevel - 1) * 120);
-    if (currentTime - this.lastActionTime >= currentInterval) {
+    // Fire big orb every 1.0 second! (slightly quicker with enrage)
+    const orbInterval = Math.max(750, this.actionInterval - (this.enrageLevel - 1) * 35);
+    if (currentTime - this.lastActionTime >= orbInterval) {
       this.lastActionTime = currentTime;
-      this.performNextAction();
+      this.actionRandomBigOrb();
     }
   }
 
-  performNextAction() {
-    switch (this.attackPatternIndex) {
-      case 0:
-        this.actionEnemyBarrage5();
-        break;
-      case 1:
-        this.actionRandomBigOrb();
-        break;
-      case 2:
-        this.actionTrackingLaser();
-        break;
-    }
-    this.attackPatternIndex = (this.attackPatternIndex + 1) % 3;
+  // Summon 4 different types of enemies, and trigger another 4 enemies 1.0 second later!
+  actionSummonEnemies() {
+    this.spawnFourEnemies(false);
+    // Schedule 2nd wave exactly 1.0 second (1000ms) later
+    this.pendingSecondSummonTime = performance.now() + 1000;
   }
 
-  // Skill 1: 4 types of enemies (shooter, normal, large/hard, chaser) 5 in a row fired at player!
-  actionEnemyBarrage5() {
-    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 16, '🐹 4種敵・5連射ラッシュ！', '#38bdf8'));
-    screenShake = 14;
-    shockwaves.push(new Shockwave(this.x, this.y, this.radius * 2.2, '#38bdf8', 6));
+  spawnFourEnemies(isSecondWave = false) {
+    const waveText = isSecondWave ? '🐹 神聖下僕 追加召喚 (4種)！' : '🐹 神聖下僕 召喚 (4種)！';
+    const waveColor = isSecondWave ? '#a855f7' : '#38bdf8';
+    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 16, waveText, waveColor));
+    screenShake = 16;
+    shockwaves.push(new Shockwave(this.x, this.y, this.radius * 2.5, waveColor, 8));
 
-    // 4 types: shooter, normal, large, chaser. 5 in a row!
-    const types = ['shooter', 'normal', 'large', 'chaser', 'shooter'];
-    this.enemyBurstQueue = types.slice();
-    this.lastEnemyBurstShot = performance.now() - this.enemyBurstInterval; // Fire first immediately
-  }
+    const isPortrait = canvas.height > canvas.width;
+    const types = ['normal', 'shooter', 'chaser', 'large'];
 
-  fireEnemyShapedBullet(enemyType) {
-    let targetX = player.x, targetY = player.y;
-    if (window.isMultiplayerMode && window.multiplayerManager) {
-      const targets = window.multiplayerManager.getAliveTargets();
-      if (targets.length > 0) {
-        const t = targets[Math.floor(Math.random() * targets.length)];
-        targetX = t.x; targetY = t.y;
+    for (let i = 0; i < types.length; i++) {
+      const type = types[i];
+      let vx, vy;
+      const speedMult = type === 'large' ? 0.8 : (type === 'chaser' ? 1.05 : 0.95);
+      const angleOffset = isSecondWave ? 0.15 : 0; // slight angle variation for 2nd wave
+
+      // Downward fan spread towards bottom / player field
+      const spreadAngle = Math.PI / 2 + ((i - 1.5) * 0.32) + angleOffset;
+      const spd = (2.6 + Math.random() * 0.6) * speedMult;
+      vx = Math.cos(spreadAngle) * spd;
+      vy = Math.sin(spreadAngle) * spd;
+
+      const spawnX = this.x + (Math.random() - 0.5) * 35;
+      const spawnY = this.y + (Math.random() - 0.5) * 35;
+      const newEnemy = new Enemy(spawnX, spawnY, vx, vy, isPortrait, type);
+      enemies.push(newEnemy);
+
+      // Flash & magic circle particles for summoning
+      for (let p = 0; p < 8; p++) {
+        const pAng = Math.random() * Math.PI * 2;
+        particles.push(new Particle(
+          spawnX, spawnY,
+          Math.cos(pAng) * 4,
+          Math.sin(pAng) * 4,
+          waveColor, 3, 16
+        ));
       }
     }
-
-    const dx = targetX - this.x;
-    const dy = targetY - this.y;
-    const dist = Math.hypot(dx, dy) || 1;
-    const speed = (6.5 + (this.enrageLevel - 1) * 0.4);
-    const vx = (dx / dist) * speed;
-    const vy = (dy / dist) * speed;
-
-    bossBullets.push(new BossBullet(this.x, this.y, vx, vy, enemyType));
-
-    // Sparks
-    for (let k = 0; k < 6; k++) {
-      const pAng = Math.random() * Math.PI * 2;
-      particles.push(new Particle(this.x, this.y, Math.cos(pAng) * 4, Math.sin(pAng) * 4, '#38bdf8', 3, 14));
-    }
   }
 
-  // Skill 2: Random size slightly large orb fired towards player
+  // Fire a big round orb every 1 second towards player
   actionRandomBigOrb() {
-    const sizeMultiplier = 1.6 + Math.random() * 1.8; // Random big size
-    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 16, '🐹 神聖ヒマワリ光弾！', '#fde047'));
-    screenShake = 18;
-    shockwaves.push(new Shockwave(this.x, this.y, this.radius * 2.5, '#fde047', 8));
+    const sizeMultiplier = 1.8 + Math.random() * 1.6; // Large round sphere
+    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 16, '🐹 神聖巨大光弾！', '#fde047'));
+    screenShake = 12;
+    shockwaves.push(new Shockwave(this.x, this.y, this.radius * 2.2, '#fde047', 6));
 
     let targetX = player.x, targetY = player.y;
     if (window.isMultiplayerMode && window.multiplayerManager) {
@@ -3020,88 +3044,32 @@ class EventBossHamGod {
     const dx = targetX - this.x;
     const dy = targetY - this.y;
     const dist = Math.hypot(dx, dy) || 1;
-    const speed = (5.2 + (this.enrageLevel - 1) * 0.3);
+    const speed = (5.0 + (this.enrageLevel - 1) * 0.25);
     const vx = (dx / dist) * speed;
     const vy = (dy / dist) * speed;
 
-    // Bullet with random big size
+    // Large round orb bullet
     const orb = new BossBullet(this.x, this.y, vx, vy, 'big_orb');
-    orb.radius = Math.floor(11 * sizeMultiplier);
+    orb.radius = Math.floor(13 * sizeMultiplier); // ~24 - 36px radius
     orb.color = '#fde047';
     bossBullets.push(orb);
 
-    // If highly enraged (lv >= 4), also emit 2 smaller side orbs
+    // If highly enraged (lv >= 4), also emit 2 companion orbs
     if (this.enrageLevel >= 4) {
       const ang = Math.atan2(vy, vx);
       for (const off of [-0.35, 0.35]) {
         const sideVx = Math.cos(ang + off) * speed * 0.95;
         const sideVy = Math.sin(ang + off) * speed * 0.95;
         const sideOrb = new BossBullet(this.x, this.y, sideVx, sideVy, 'big_orb');
-        sideOrb.radius = 12;
+        sideOrb.radius = 14;
         sideOrb.color = '#67e8f9';
         bossBullets.push(sideOrb);
       }
     }
   }
 
-  // Skill 3: 2-second continuous tracking laser
-  actionTrackingLaser() {
-    floatingTexts.push(new FloatingText(this.x, this.y - this.radius - 16, '⚡ ハム神裁きのレーザー (2.0s)！', '#a78bfa'));
-    screenShake = 22;
-    shockwaves.push(new Shockwave(this.x, this.y, this.radius * 2.8, '#a78bfa', 10));
-
-    let targetX = player.x, targetY = player.y;
-    if (window.isMultiplayerMode && window.multiplayerManager) {
-      const targets = window.multiplayerManager.getAliveTargets();
-      if (targets.length > 0) {
-        targetX = targets[0].x;
-        targetY = targets[0].y;
-      }
-    }
-
-    // Set initial laser angle with slight offset so player can react and dodge
-    const directAngle = Math.atan2(targetY - this.y, targetX - this.x);
-    const initialOffset = (Math.random() > 0.5 ? 1 : -1) * 0.65; // ~37 degrees away
-    this.laserAngle = directAngle + initialOffset;
-    this.laserActive = true;
-    this.laserStartTime = performance.now();
-    this.lastLaserDamageTime = performance.now() + 200; // Brief grace period on fire
-  }
-
-  checkLaserCollision() {
-    if (!this.laserActive) return;
-
-    // Check distance of player center from the laser ray
-    const cosL = Math.cos(this.laserAngle);
-    const sinL = Math.sin(this.laserAngle);
-
-    const px = player.x - this.x;
-    const py = player.y - this.y;
-
-    // Projection along laser ray
-    const proj = px * cosL + py * sinL;
-    if (proj > 0 && proj < this.laserLength) {
-      // Perpendicular distance
-      const perpDist = Math.abs(px * (-sinL) + py * cosL);
-      const hitRadius = (player.isGuarding ? player.guardRadius : player.radius) + this.laserWidth * 0.45;
-
-      if (perpDist < hitRadius) {
-        if (player.isGuarding) {
-          spawnGuardSparkles();
-          floatingTexts.push(new FloatingText(player.x, player.y - 30, '🛡️ BLOCKED!', '#34d399'));
-        } else if (player.isDashing) {
-          // Dash invincible
-        } else {
-          takeDamage();
-          createExplosion(player.x, player.y, '#38bdf8');
-          floatingTexts.push(new FloatingText(player.x, player.y - 35, '⚡ LASER HIT!', '#f43f5e'));
-        }
-      }
-    }
-  }
-
   draw(ctx) {
-    drawHamGodVisual(ctx, this.x, this.y, this.radius, this.animTime, this.enrageLevel, this.laserActive, this.laserAngle);
+    drawHamGodVisual(ctx, this.x, this.y, this.radius, this.animTime, this.enrageLevel, false, 0, false);
   }
 }
 
@@ -4259,6 +4227,15 @@ function gameOver(type = 'DEFEAT') {
     setTimeout(() => {
       checkAndPromptRecordRegistration('BOSS', bossBattleElapsedTime, bossLevel);
     }, 800);
+  } else if (gameMode === 'EVENT_BOSS') {
+    const isClientMP = window.isMultiplayerMode && window.multiplayerManager && !window.multiplayerManager.isHost;
+    const b = isClientMP ? window.multiplayerManager?.remoteGameObjects?.boss : boss;
+    const totalDmg = b ? (b.totalDamage || 0) : 0;
+    if (totalDmg > 0) {
+      setTimeout(() => {
+        checkAndPromptRecordRegistration('EVENT_BOSS', totalDmg, 1);
+      }, 700);
+    }
   }
 }
 
@@ -5003,8 +4980,8 @@ function gameLoop(currentTime) {
       if (window.multiplayerManager.remoteGameObjects.boss) {
         const rb = window.multiplayerManager.remoteGameObjects.boss;
         rb.update(timeScale);
-        if (rb instanceof RemoteEventBoss && rb.laserActive) {
-          // Client check laser collision
+        if (rb instanceof RemoteEventBoss && rb.laserActive && rb.laserLength > 0) {
+          // Client check laser collision (if ever active)
           const cosL = Math.cos(rb.laserAngle);
           const sinL = Math.sin(rb.laserAngle);
           const px = player.x - rb.x;

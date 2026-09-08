@@ -249,7 +249,7 @@ class RemotePlayer {
 // ========================================================
 // HamGod Shared Visual Renderer (Blue Sapphire Djungarian)
 // ========================================================
-function drawHamGodVisual(ctx, x, y, radius, animTime, enrageLevel, laserActive, laserAngle) {
+function drawHamGodVisual(ctx, x, y, radius, animTime, enrageLevel, laserActive, laserAngle, laserWarningActive = false) {
   ctx.save();
   ctx.translate(x, y);
 
@@ -461,34 +461,84 @@ function drawHamGodVisual(ctx, x, y, radius, animTime, enrageLevel, laserActive,
 
   ctx.restore(); // Restore body sway
 
-  // Beam / Laser Visual if currently firing
+  // 1-Second Flashing Red Warning Area (Telegraph for Laser Beam)
+  if (laserWarningActive) {
+    ctx.save();
+    ctx.rotate(laserAngle);
+
+    const laserLength = 1600;
+    const lWidth = 108; // 3x width
+    // Fast flash pulsation: 8Hz square / sin pulsation
+    const flashAlpha = 0.35 + 0.35 * Math.sin(animTime * 28);
+
+    // Red warning beam lane
+    ctx.fillStyle = `rgba(239, 68, 68, ${Math.max(0.1, flashAlpha * 0.45)})`;
+    ctx.fillRect(0, -lWidth / 2, laserLength, lWidth);
+
+    // Warning boundary dashed lines
+    ctx.strokeStyle = `rgba(255, 68, 68, ${Math.max(0.2, flashAlpha)})`;
+    ctx.lineWidth = 4;
+    ctx.setLineDash([16, 10]);
+    ctx.beginPath();
+    ctx.moveTo(0, -lWidth / 2);
+    ctx.lineTo(laserLength, -lWidth / 2);
+    ctx.moveTo(0, lWidth / 2);
+    ctx.lineTo(laserLength, lWidth / 2);
+    ctx.stroke();
+
+    // Center sharp tracking danger laser line
+    ctx.strokeStyle = `rgba(255, 255, 255, ${Math.max(0.3, flashAlpha * 0.9)})`;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(laserLength, 0);
+    ctx.stroke();
+
+    // Muzzle warning pulsing circle
+    ctx.fillStyle = `rgba(239, 68, 68, ${flashAlpha * 0.7})`;
+    ctx.beginPath();
+    ctx.arc(0, 0, radius * 0.8 + Math.sin(animTime * 20) * 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Beam / Laser Visual if currently firing (2.0s duration, ~3x massive beam)
   if (laserActive) {
     ctx.save();
     ctx.rotate(laserAngle);
 
     // Laser core and outer blazing aura
     const laserLength = 1600;
-    const lWidth = 34 + Math.sin(animTime * 18) * 8;
+    const lWidth = 126 + Math.sin(animTime * 22) * 20;
 
     // Outer glow
     ctx.shadowColor = '#38bdf8';
-    ctx.shadowBlur = 24;
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.shadowBlur = 45;
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.45)';
     ctx.fillRect(0, -lWidth / 2, laserLength, lWidth);
 
     // Inner bright beam
     ctx.fillStyle = '#67e8f9';
-    ctx.fillRect(0, -lWidth * 0.28, laserLength, lWidth * 0.56);
+    ctx.fillRect(0, -lWidth * 0.32, laserLength, lWidth * 0.64);
 
     // Core white hot line
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, -lWidth * 0.12, laserLength, lWidth * 0.24);
+    ctx.fillRect(0, -lWidth * 0.14, laserLength, lWidth * 0.28);
 
     // Muzzle blast rings
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 5;
     ctx.beginPath();
     ctx.arc(0, 0, lWidth * 0.9, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+
+    // Electric sparks along beam origin
+    ctx.strokeStyle = '#a5f3fc';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(0, 0, lWidth * 1.25, -Math.PI / 3, Math.PI / 3);
     ctx.stroke();
 
     ctx.restore();
@@ -760,9 +810,10 @@ class RemoteEventBoss {
     this.enrageLevel = data.enrageLevel || 1;
     this.animTime = 0;
     this.laserActive = false;
+    this.laserWarningActive = false;
     this.laserAngle = 0;
-    this.laserLength = 1500;
-    this.laserWidth = 34;
+    this.laserLength = 1600;
+    this.laserWidth = 126; // 3x width
     this.hasGrazed = false;
   }
 
@@ -775,6 +826,7 @@ class RemoteEventBoss {
     this.totalDamage = data.totalDamage || 0;
     this.enrageLevel = data.enrageLevel || 1;
     this.laserActive = !!data.laserActive;
+    this.laserWarningActive = !!data.laserWarningActive;
     this.laserAngle  = data.laserAngle || 0;
     if (data.angle != null) this.angle = data.angle;
 
@@ -791,7 +843,7 @@ class RemoteEventBoss {
   }
 
   draw(ctx) {
-    drawHamGodVisual(ctx, this.x, this.y, this.radius, this.animTime, this.enrageLevel, this.laserActive, this.laserAngle);
+    drawHamGodVisual(ctx, this.x, this.y, this.radius, this.animTime, this.enrageLevel, this.laserActive, this.laserAngle, this.laserWarningActive);
   }
 }
 
@@ -831,23 +883,43 @@ class RemoteBossBullet {
 
   draw(ctx) {
     ctx.save();
-    ctx.shadowColor = '#ff1744';
-    ctx.shadowBlur  = 12;
-    ctx.fillStyle   = '#ff3366';
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle  = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,51,102,0.4)';
-    ctx.lineWidth   = 3;
-    ctx.beginPath();
-    ctx.moveTo(this.x, this.y);
-    ctx.lineTo(this.x - this.vx * 1.8, this.y - this.vy * 1.8);
-    ctx.stroke();
+    if (this.bulletShape === 'big_orb') {
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 20;
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+      // Swirling center
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+      // Sunflower seed outline effect
+      ctx.strokeStyle = '#d97706';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius + 3, 0, Math.PI * 2);
+      ctx.stroke();
+    } else {
+      ctx.shadowColor = '#ff1744';
+      ctx.shadowBlur  = 12;
+      ctx.fillStyle   = '#ff3366';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle  = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,51,102,0.4)';
+      ctx.lineWidth   = 3;
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x - this.vx * 1.8, this.y - this.vy * 1.8);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 }
@@ -1658,11 +1730,12 @@ class MultiplayerManager {
           isEventBoss: !!boss.isEventBoss,
           totalDamage: boss.totalDamage || 0,
           enrageLevel: boss.enrageLevel || 1,
+          laserWarningActive: !!boss.laserWarningActive,
           laserActive: !!boss.laserActive,
           laserAngle:  boss.laserAngle || 0
         } : null,
         bossBullets: (typeof bossBullets !== 'undefined') ? bossBullets.map(b => ({
-          x: b.x, y: b.y, vx: b.vx, vy: b.vy, radius: b.radius
+          x: b.x, y: b.y, vx: b.vx, vy: b.vy, radius: b.radius, bulletShape: b.bulletShape || null
         })) : [],
         score:                    (typeof score                    !== 'undefined') ? score : 0,
         bossBattleElapsedTime:    (typeof bossBattleElapsedTime    !== 'undefined') ? bossBattleElapsedTime : 0,
