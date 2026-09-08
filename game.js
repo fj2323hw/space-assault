@@ -3174,11 +3174,12 @@ function spawnEnemy() {
   }
 
   let chosenType = 'normal';
-  if (scoreBossDefeated && Math.random() < 0.25) {
-    // Unlocked after defeating Score Attack Boss: Homing Chaser enemy!
+  const r = Math.random();
+  if (r < 0.15) {
+    // Chaser (追尾敵) spawns from the beginning!
     chosenType = 'chaser';
-  } else if (Math.random() < 0.18) {
-    // Shooter spawns from the very beginning now!
+  } else if (r < 0.30) {
+    // Shooter spawns from the beginning!
     chosenType = 'shooter';
   } else if (isLarge) {
     chosenType = 'large';
