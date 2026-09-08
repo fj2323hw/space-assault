@@ -142,6 +142,7 @@ const mpFill = document.getElementById('mpFill');
 const mpVal = document.getElementById('mpVal');
 const wpVal = document.getElementById('wpVal');
 const uepVal = document.getElementById('uepVal');
+const summonCountVal = document.getElementById('summonCountVal');
 const bgmMuteBtn = document.getElementById('bgmMuteBtn');
 if (bgmMuteBtn) {
   bgmMuteBtn.addEventListener('click', () => {
@@ -1694,11 +1695,12 @@ const player = {
   homingCooldown: 260,
   lastHomingTime: 0,
 
-  // Skill 4: Summon Minion (WP 20 + EP 50, Shoots bullets every 3s, HP 50, takes 20 dmg on hit)
+  // Skill 4: Summon Minion (WP 20 + EP 50, Shoots bullets every 3s, HP 50, takes 20 dmg on hit, max 10)
   summonWpCost: 20,
   summonMpCost: 50,
   summonCooldown: 1000,
   lastSummonTime: 0,
+  maxSummonMinions: 10,
   // Multiplayer: down/revival state
   isDown:          false,   // True when player is defeated in multiplayer (awaiting revival)
   revivalProgress: 0,       // 0–1 when being revived by an ally
@@ -2092,6 +2094,27 @@ class SummonMinion {
       ));
     }
     floatingTexts.push(new FloatingText(this.x, this.y - 20, `-${amount}`, '#f43f5e'));
+  }
+
+  heal(amount = 10) {
+    const oldHp = this.hp;
+    this.hp = Math.min(this.maxHp, this.hp + amount);
+    const actualHealed = this.hp - oldHp;
+
+    // 回復エフェクト（緑・エメラルドグロー）
+    shockwaves.push(new Shockwave(this.x, this.y, 45, '#34d399', 4));
+    for (let k = 0; k < 8; k++) {
+      const spkAng = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 3 + 1;
+      particles.push(new Particle(
+        this.x, this.y,
+        Math.cos(spkAng) * spd,
+        Math.sin(spkAng) * spd - 1, // ふわりと上に昇る
+        Math.random() > 0.4 ? '#34d399' : '#a7f3d0',
+        2.5, 20
+      ));
+    }
+    floatingTexts.push(new FloatingText(this.x, this.y - 25, `+${amount} HP`, '#34d399'));
   }
 
   draw(ctx) {
@@ -3974,6 +3997,29 @@ function activateSummonSkill() {
   player.lastSummonTime = now;
   if (wpVal) wpVal.innerText = player.wp;
 
+  // If already at maximum summon count (10), heal all existing minions by 10 HP instead!
+  if (summonMinions.length >= (player.maxSummonMinions || 10)) {
+    for (const m of summonMinions) {
+      m.heal(10);
+    }
+    // Global heal pulse around player
+    shockwaves.push(new Shockwave(player.x, player.y, 110, '#34d399', 6));
+    for (let i = 0; i < 20; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const spd = Math.random() * 5 + 2;
+      particles.push(new Particle(
+        player.x, player.y,
+        Math.cos(angle) * spd,
+        Math.sin(angle) * spd - 1,
+        Math.random() > 0.4 ? '#34d399' : '#6ee7b7',
+        Math.random() * 3.5 + 2,
+        25
+      ));
+    }
+    floatingTexts.push(new FloatingText(player.x, player.y - 35, '💚 ショッター全員HP回復 (+10)！', '#34d399'));
+    return;
+  }
+
   // Spawn Minion slightly behind player
   const isPortrait = canvas.height > canvas.width;
   const spawnX = isPortrait ? player.x : player.x - 60;
@@ -3996,7 +4042,7 @@ function activateSummonSkill() {
       25
     ));
   }
-  floatingTexts.push(new FloatingText(spawnX, spawnY - 35, '✨ 味方召喚！', '#c084fc'));
+  floatingTexts.push(new FloatingText(spawnX, spawnY - 35, `✨ 味方召喚！ (${summonMinions.length}/${player.maxSummonMinions || 10})`, '#c084fc'));
 }
 
 // Guard Skill: Barrier Helper
@@ -4219,6 +4265,10 @@ function startGame(mode = 'SCORE_ATTACK') {
   player.uep        = 0;
   if (wpVal) wpVal.innerText = '0';
   if (uepVal) uepVal.innerText = '0';
+  if (summonCountVal) {
+    summonCountVal.innerText = '0/' + (player.maxSummonMinions || 10);
+    summonCountVal.classList.remove('max');
+  }
   player.x = canvas.width / 2;
   player.y = canvas.height * 0.75;
   player.vx = 0;
@@ -4416,6 +4466,14 @@ function updateHUD() {
   // Update UEP Display
   if (uepVal) {
     uepVal.innerText = player.uep;
+  }
+
+  // Update Summon Count Display (e.g. 0/10 or MAX)
+  if (summonCountVal) {
+    const maxLimit = player.maxSummonMinions || 10;
+    const currentCount = summonMinions.length;
+    summonCountVal.innerText = `${currentCount}/${maxLimit}`;
+    summonCountVal.classList.toggle('max', currentCount >= maxLimit);
   }
 
   const now = performance.now();

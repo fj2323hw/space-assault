@@ -250,6 +250,25 @@
       letter-spacing: 0.5px;
     }
 
+    .summon-count-text {
+      color: #a855f7;
+      text-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+    }
+
+    .summon-count-badge {
+      font-size: 13px;
+      font-weight: 800;
+      color: #c084fc;
+      font-family: monospace;
+      letter-spacing: 0.5px;
+      transition: color 0.2s;
+    }
+
+    .summon-count-badge.max {
+      color: #34d399;
+      text-shadow: 0 0 8px rgba(52, 211, 153, 0.8);
+    }
+
     /* PC Bottom HUD (2x2 Grid) */
     .skill-hud {
       position: absolute;
@@ -1908,8 +1927,8 @@
           </div>
           <span class="bar-val" id="mpVal">100/100</span>
         </div>
-        <!-- WP & UEP Display -->
-        <div class="bar-row" style="margin-top: 1px; gap: 14px;">
+        <!-- WP & UEP & Summon Count Display -->
+        <div class="bar-row" style="margin-top: 1px; gap: 12px;">
           <div style="display: flex; align-items: center; gap: 6px;">
             <span class="bar-label wp-text">WP</span>
             <span class="wp-badge" id="wpVal">0</span>
@@ -1917,6 +1936,10 @@
           <div style="display: flex; align-items: center; gap: 6px;">
             <span class="bar-label uep-text" style="width: auto;">UEP</span>
             <span class="uep-badge" id="uepVal">0</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 5px;" title="現在の召喚数 / 最大10体 (最大時スキル使用で全員HP回復)">
+            <span class="bar-label summon-count-text" style="width: auto; font-size: 11px;">🤖</span>
+            <span class="summon-count-badge" id="summonCountVal">0/10</span>
           </div>
         </div>
       </div>

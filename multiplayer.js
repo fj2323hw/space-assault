@@ -1568,6 +1568,11 @@ class MultiplayerManager {
     this.revivalTimers[key] = (this.revivalTimers[key] || 0) + data.dt;
     const progress = Math.min(1, this.revivalTimers[key] / 3.0);
 
+    // If host is the target being revived, update local player.revivalProgress directly on the host
+    if (isTargetHost && typeof player !== 'undefined') {
+      player.revivalProgress = progress;
+    }
+
     // Broadcast using both normalized ID and host's actual peerId so all clients match
     this._broadcast({
       type:         MP_MSG.REVIVE_PROGRESS_BCAST,
@@ -1575,6 +1580,14 @@ class MultiplayerManager {
       targetPeerId:  normalizedTarget,
       progress
     });
+    if (isTargetHost && this.peer?.id && normalizedTarget !== this.peer.id) {
+      this._broadcast({
+        type:         MP_MSG.REVIVE_PROGRESS_BCAST,
+        reviverPeerId: fromPeerId,
+        targetPeerId:  this.peer.id,
+        progress
+      });
+    }
 
     if (this.revivalTimers[key] >= 3.0) {
       delete this.revivalTimers[key];
